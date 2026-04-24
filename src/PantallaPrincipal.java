@@ -28,6 +28,10 @@ public class PantallaPrincipal extends JFrame {
     private String usuarioActual = null;
     // TODO: REEMPLAZAR POR LISTA DE LA BDD
     private java.util.List<String[]> publicaciones = new java.util.ArrayList<>();
+    public static java.util.List<String> notificacionesGlobal = new java.util.ArrayList<>();
+    public static void agregarNotificacion(String texto) {
+        notificacionesGlobal.add(0, texto);
+    }
 
     // Panel de imagen en crear post
     private JPanel imgBox;
@@ -175,7 +179,10 @@ public class PantallaPrincipal extends JFrame {
         });
 
         JButton btnMas = sidebarButton("•••", "Más");
-        btnMas.addActionListener(e -> { /* TODO: IR A MAS */ });
+        btnMas.addActionListener(e -> {
+            setVisible(false);
+            new Pantallaajustes(PantallaPrincipal.this);
+        });
 
         JButton btnPublicar = createPublicarButton();
         btnPublicar.addActionListener(e -> showPanel("crear"));
@@ -302,7 +309,6 @@ public class PantallaPrincipal extends JFrame {
         card.add(lblTitulo);
         card.add(Box.createVerticalStrut(10));
 
-        // TODO: REEMPLAZAR CON IMAGEN REAL DE LA BDD
         JPanel imgPlaceholder = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -366,7 +372,7 @@ public class PantallaPrincipal extends JFrame {
             "Tu memoria se eliminó correctamente",
             "Contraseña cambiada con éxito"
         };
-        for (String n : notifs) {
+        for (String n : notificacionesGlobal) {
             drawer.add(buildNotifItem(n));
             drawer.add(Box.createVerticalStrut(10));
         }

@@ -249,7 +249,7 @@ public class PantallaPerfil extends JFrame {
 
         // TODO: CONECTAR CON BDD
         btnEliminar.addActionListener(e -> { });
-        btnAjustes.addActionListener(e -> { });
+        btnAjustes.addActionListener(e -> new Pantallaajustes(PantallaPerfil.this));
 
         menu.add(btnEliminar);
         menu.add(Box.createVerticalStrut(8));
