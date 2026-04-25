@@ -25,7 +25,9 @@ public class PantallaPrincipal extends JFrame {
     private JLayeredPane layeredPane;
     private JPanel notifDrawer;
     private boolean notifOpen = false;
-    private String usuarioActual = null;
+    private int idUsuarioActual;
+    private String nombreUsuario;
+    private int idRolUsuario;
     // TODO: REEMPLAZAR POR LISTA DE LA BDD
     private java.util.List<String[]> publicaciones = new java.util.ArrayList<>();
     public static java.util.List<String> notificacionesGlobal = new java.util.ArrayList<>();
@@ -37,7 +39,13 @@ public class PantallaPrincipal extends JFrame {
     private JPanel imgBox;
     private BufferedImage imagenSeleccionada = null;
 
-    public PantallaPrincipal() {
+    // Constructor que recibe el usuario logueado
+    public PantallaPrincipal(UsuarioDAO.Usuario usuario) {
+        // Guardar datos del usuario
+        this.idUsuarioActual = usuario.idUsuario;
+        this.nombreUsuario = usuario.nombre;
+        this.idRolUsuario = usuario.idRol;
+        
         setTitle("Inicio - Memory Flesh");
         setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -172,7 +180,7 @@ public class PantallaPrincipal extends JFrame {
         btnNotif.addActionListener(e -> toggleNotifDrawer());
 
         // TODO: LABEL CAMBIARA AL NOMBRE DEL USUARIO LOGUEADO CUANDO HAYA BDD
-        JButton btnPerfil = sidebarButton("👤", usuarioActual != null ? usuarioActual : "Usuario");
+        JButton btnPerfil = sidebarButton("👤", nombreUsuario);
         btnPerfil.addActionListener(e -> {
             setVisible(false);
             new PantallaPerfil(PantallaPrincipal.this);
@@ -660,9 +668,5 @@ panel.add(charCount);
 
     private void showPanel(String name) {
         ((CardLayout) centerContainer.getLayout()).show(centerContainer, name);
-    }
-
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(PantallaPrincipal::new);
     }
 }

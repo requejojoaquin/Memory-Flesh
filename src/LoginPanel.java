@@ -218,18 +218,43 @@ button.setMaximumSize(new Dimension(220, 44));
     }
 
     private void handleLogin() {
-    String email = emailField.getText().trim();
+        String email = emailField.getText().trim();
+        String pass = new String(passwordField.getPassword());
+        
+        boolean valid = true;
 
-    if (email.equals("Correo electrónico*") || email.isEmpty()) {
-        emailErrorLabel.setText("Este campo no puede estar vacío");
-    } else if (!email.matches("^[a-zA-Z0-9]+@gmail\\.com$")) {
-        emailErrorLabel.setText("Correo con formato inválido");
-    } else {
-        emailErrorLabel.setText(" ");
-    }
-    }
+        if (email.equals("Correo electrónico*") || email.isEmpty()) {
+            emailErrorLabel.setText("Este campo no puede estar vacío");
+            valid = false;
+        } else if (!email.matches("^[a-zA-Z0-9._%+-]+@gmail\\.com$")) {
+            emailErrorLabel.setText("Correo con formato inválido");
+            valid = false;
+        } else {
+            emailErrorLabel.setText(" ");
+        }
+        
+        if (pass.equals("Contraseña*") || pass.isEmpty()) {
+            valid = false;
+        }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(LoginPanel::new);
+        if (valid) {
+            // Llamar al DAO para verificar credenciales
+            UsuarioDAO.Usuario usuario = UsuarioDAO.login(email, pass);
+            
+            if (usuario != null) {
+                // Login exitoso
+                JOptionPane.showMessageDialog(this, "¡Bienvenido " + usuario.nombre + "!");
+                
+                // Cerrar LoginPanel
+                dispose();
+                
+                // Abrir PantallaPrincipal pasando el usuario
+                new PantallaPrincipal(usuario);
+                
+            } else {
+                // Login fallido (credenciales incorrectas)
+                emailErrorLabel.setText("Correo o contraseña incorrectos");
+            }
+        }
     }
 }
