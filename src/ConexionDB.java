@@ -7,7 +7,7 @@ public class ConexionDB {
     private static final String PUERTO   = "3306";
     private static final String BASE     = "memoryflesh";
     private static final String USUARIO  = "root";
-    private static final String PASSWORD = "tu_contraseña_aqui"; // <-- CAMBIÁ ESTO
+    private static final String PASSWORD = "joaco2122007."; // <-- CAMBIÁ ESTO
 
     private static final String URL =
         "jdbc:mysql://" + HOST + ":" + PUERTO + "/" + BASE

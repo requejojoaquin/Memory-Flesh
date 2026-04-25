@@ -18,6 +18,8 @@ public class RegistrarPanel extends JFrame {
     private JTextField emailField;
     private JPasswordField passwordField;
     private JPasswordField confirmPasswordField;
+
+    private JLabel usernameErrorLabel;
     private JLabel emailErrorLabel;
     private JLabel passwordErrorLabel;
 
@@ -67,7 +69,7 @@ public class RegistrarPanel extends JFrame {
         };
         card.setOpaque(false);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(640, 520)); // Subí un toque el alto para que entren los errores
+        card.setPreferredSize(new Dimension(640, 580));
         card.setBorder(BorderFactory.createEmptyBorder(30, 64, 30, 64));
 
         JLabel cardTitle = new JLabel("Registrarse");
@@ -75,10 +77,16 @@ public class RegistrarPanel extends JFrame {
         cardTitle.setFont(new Font("SansSerif", Font.BOLD, 26));
         cardTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        usernameField = createTextField("Nombre de usuario*");
-        emailField    = createTextField("Correo electrónico*");
-        passwordField = createPasswordField("Contraseña*");
+        usernameField        = createTextField("Nombre de usuario*");
+        emailField           = createTextField("Correo electrónico*");
+        passwordField        = createPasswordField("Contraseña*");
         confirmPasswordField = createPasswordField("Confirmar contraseña*");
+
+        // Label de error para username (nuevo)
+        usernameErrorLabel = new JLabel(" ");
+        usernameErrorLabel.setForeground(ERROR_COLOR);
+        usernameErrorLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        usernameErrorLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         emailErrorLabel = new JLabel(" ");
         emailErrorLabel.setForeground(ERROR_COLOR);
@@ -96,18 +104,24 @@ public class RegistrarPanel extends JFrame {
 
         card.add(cardTitle);
         card.add(Box.createVerticalStrut(20));
+
         card.add(usernameField);
-        card.add(Box.createVerticalStrut(12));
+        card.add(Box.createVerticalStrut(4));
+        card.add(usernameErrorLabel);
+        card.add(Box.createVerticalStrut(4));
+
         card.add(emailField);
         card.add(Box.createVerticalStrut(4));
         card.add(emailErrorLabel);
         card.add(Box.createVerticalStrut(4));
+
         card.add(passwordField);
         card.add(Box.createVerticalStrut(12));
         card.add(confirmPasswordField);
         card.add(Box.createVerticalStrut(4));
         card.add(passwordErrorLabel);
         card.add(Box.createVerticalStrut(20));
+
         card.add(createButton);
 
         return card;
@@ -208,26 +222,33 @@ public class RegistrarPanel extends JFrame {
     }
 
     private void handleRegister() {
+        // Limpiar errores anteriores
+        usernameErrorLabel.setText(" ");
+        emailErrorLabel.setText(" ");
+        passwordErrorLabel.setText(" ");
+
         boolean valid = true;
+
+        // --- VALIDACIÓN NOMBRE DE USUARIO ---
+        String username = usernameField.getText().trim();
+        if (username.equals("Nombre de usuario*") || username.isEmpty()) {
+            usernameErrorLabel.setText("Este campo no puede estar vacío");
+            valid = false;
+        }
 
         // --- VALIDACIÓN EMAIL ---
         String email = emailField.getText().trim();
         if (email.equals("Correo electrónico*") || email.isEmpty()) {
             emailErrorLabel.setText("Este campo no puede estar vacío");
             valid = false;
-        } else if (!email.matches("^[a-zA-Z0-9._%+-]+@gmail\\.com$")) {
+        } else if (!email.contains("@") || !email.contains(".com")) {
             emailErrorLabel.setText("Correo con formato inválido");
             valid = false;
-        } else {
-            emailErrorLabel.setText(" ");
         }
 
         // --- VALIDACIÓN CONTRASEÑA ---
         String pass    = new String(passwordField.getPassword());
         String confirm = new String(confirmPasswordField.getPassword());
-        
-        // Regex: busca cualquier cosa que NO sea letra o número
-        String regexEspeciales = ".*[^a-zA-Z0-9].*";
 
         boolean passEmpty    = pass.equals("Contraseña*") || pass.isEmpty();
         boolean confirmEmpty = confirm.equals("Confirmar contraseña*") || confirm.isEmpty();
@@ -238,16 +259,36 @@ public class RegistrarPanel extends JFrame {
         } else if (!pass.equals(confirm)) {
             passwordErrorLabel.setText("Las contraseñas no coinciden");
             valid = false;
-        } else if (!pass.matches(regexEspeciales)) {
-            // AQUÍ ESTÁ TU MENSAJE PERSONALIZADO
+        } else if (!pass.matches(".*[^a-zA-Z0-9].*")) {
             passwordErrorLabel.setText("Debe contener un carácter especial. Ejemplo: @$!%*?&./-_");
             valid = false;
-        } else {
-            passwordErrorLabel.setText(" ");
         }
 
-        if (valid) {
-            JOptionPane.showMessageDialog(this, "¡Registro exitoso!");
+        if (!valid) return;
+
+        // --- LLAMADA A LA BDD ---
+        UsuarioDAO.Resultado resultado = UsuarioDAO.registrar(username, email, pass);
+
+        if (resultado.ok) {
+            JOptionPane.showMessageDialog(
+                this,
+                "¡Cuenta creada con éxito! Ya podés iniciar sesión.",
+                "Registro exitoso",
+                JOptionPane.INFORMATION_MESSAGE
+            );
+            dispose(); // Cierra el panel de registro, vuelve al login
+        } else {
+            // Mostrar el error del SP en el label correspondiente
+            String mensaje = resultado.mensaje;
+
+            if (mensaje.contains("usuario")) {
+                usernameErrorLabel.setText(mensaje);
+            } else if (mensaje.contains("correo") || mensaje.contains("mail")) {
+                emailErrorLabel.setText(mensaje);
+            } else {
+                // Error genérico: mostrar en el label de contraseña como fallback
+                passwordErrorLabel.setText(mensaje);
+            }
         }
     }
 

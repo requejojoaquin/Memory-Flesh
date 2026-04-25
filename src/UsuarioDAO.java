@@ -177,4 +177,177 @@ public class UsuarioDAO {
 
         return new Resultado(false, "Error desconocido");
     }
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  MEMORIAS
+    // ════════════════════════════════════════════════════════════════════════
+
+    // Clase interna para representar una Memoria
+    public static class Memoria {
+        public int    idMemoria;
+        public String titulo;
+        public String contenido;   // path de imagen (puede estar vacío)
+        public String descripcion;
+        public int    idUsuario;
+        public String nombreUsuario;
+        public int    idEstado;    // 1=Publico, 2=Privado, 3=Eliminado
+
+        public Memoria(int idMemoria, String titulo, String contenido,
+                       String descripcion, int idUsuario, String nombreUsuario, int idEstado) {
+            this.idMemoria     = idMemoria;
+            this.titulo        = titulo;
+            this.contenido     = contenido;
+            this.descripcion   = descripcion;
+            this.idUsuario     = idUsuario;
+            this.nombreUsuario = nombreUsuario;
+            this.idEstado      = idEstado;
+        }
+    }
+
+    // ── CREAR MEMORIA ─────────────────────────────────────────────────────
+    // SP: sp_CrearMemoria(titulo, contenido, descripcion, idUsuario, esPublica)
+    // Retorna: mensaje, idMemoria
+    public static Resultado crearMemoria(String titulo, String contenido,
+                                         String descripcion, int idUsuario, boolean esPublica) {
+        String sql = "{CALL sp_CrearMemoria(?, ?, ?, ?, ?)}";
+
+        try (Connection con = ConexionDB.getConexion();
+             CallableStatement cs = con.prepareCall(sql)) {
+
+            cs.setString(1, titulo);
+            cs.setString(2, contenido);   // path de imagen o ""
+            cs.setString(3, descripcion);
+            cs.setInt(4, idUsuario);
+            cs.setBoolean(5, esPublica);
+
+            try (ResultSet rs = cs.executeQuery()) {
+                if (rs.next()) {
+                    String mensaje   = rs.getString("mensaje");
+                    int    idMemoria = rs.getInt("idMemoria");
+                    if (idMemoria > 0) {
+                        return new Resultado(true, mensaje, idMemoria);
+                    } else {
+                        return new Resultado(false, mensaje);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("[UsuarioDAO.crearMemoria] Error SQL: " + e.getMessage());
+            System.err.println("[UsuarioDAO.crearMemoria] Código: " + e.getErrorCode());
+            e.printStackTrace();
+            return new Resultado(false, "Error en la base de datos: " + e.getMessage());
+        }
+
+        return new Resultado(false, "Error desconocido");
+    }
+
+    // ── OBTENER MEMORIAS PÚBLICAS (feed) ──────────────────────────────────
+    // Query directa: todas las memorias con estado Publico (idEstado=1),
+    // ordenadas por fecha descendente. Incluye nombre del autor.
+    public static java.util.List<Memoria> obtenerMemoriasPublicas() {
+        java.util.List<Memoria> lista = new java.util.ArrayList<>();
+        String sql =
+            "SELECT m.idMemoria, m.titulo, m.contenido, m.descripcion, " +
+            "       m.idUsuario, u.nombre AS nombreUsuario, m.idEstado " +
+            "FROM memoria m " +
+            "JOIN usuario u ON m.idUsuario = u.idUsuario " +
+            "WHERE m.idEstado = 1 " +
+            "ORDER BY m.fecha_hr DESC";
+
+        try (Connection con = ConexionDB.getConexion();
+             java.sql.PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                lista.add(new Memoria(
+                    rs.getInt("idMemoria"),
+                    rs.getString("titulo"),
+                    rs.getString("contenido"),
+                    rs.getString("descripcion"),
+                    rs.getInt("idUsuario"),
+                    rs.getString("nombreUsuario"),
+                    rs.getInt("idEstado")
+                ));
+            }
+
+        } catch (SQLException e) {
+            System.err.println("[UsuarioDAO.obtenerMemoriasPublicas] " + e.getMessage());
+        }
+
+        return lista;
+    }
+
+    // ── OBTENER MEMORIAS DE UN USUARIO (perfil) ───────────────────────────
+    // Query directa: memorias de un usuario filtradas por estado
+    // (1=Publico, 2=Privado). Excluye eliminadas (3).
+    public static java.util.List<Memoria> obtenerMemoriasDeUsuario(int idUsuario, boolean soloPublicas) {
+        java.util.List<Memoria> lista = new java.util.ArrayList<>();
+        String sql =
+            "SELECT m.idMemoria, m.titulo, m.contenido, m.descripcion, " +
+            "       m.idUsuario, u.nombre AS nombreUsuario, m.idEstado " +
+            "FROM memoria m " +
+            "JOIN usuario u ON m.idUsuario = u.idUsuario " +
+            "WHERE m.idUsuario = ? AND m.idEstado = ? " +
+            "ORDER BY m.fecha_hr DESC";
+
+        try (Connection con = ConexionDB.getConexion();
+             java.sql.PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, idUsuario);
+            ps.setInt(2, soloPublicas ? 1 : 2);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new Memoria(
+                        rs.getInt("idMemoria"),
+                        rs.getString("titulo"),
+                        rs.getString("contenido"),
+                        rs.getString("descripcion"),
+                        rs.getInt("idUsuario"),
+                        rs.getString("nombreUsuario"),
+                        rs.getInt("idEstado")
+                    ));
+                }
+            }
+
+        } catch (SQLException e) {
+            System.err.println("[UsuarioDAO.obtenerMemoriasDeUsuario] " + e.getMessage());
+        }
+
+        return lista;
+    }
+
+    // ── DAR DE BAJA MEMORIA ───────────────────────────────────────────────
+    // SP: sp_DarDeBajaMemoria(idMemoria, idUsuario)
+    // Cambia estado a Eliminado (3). El usuario solo puede bajar las suyas;
+    // el admin puede bajar cualquiera.
+    public static Resultado darDeBajaMemoria(int idMemoria, int idUsuario) {
+        String sql = "{CALL sp_DarDeBajaMemoria(?, ?)}";
+
+        try (Connection con = ConexionDB.getConexion();
+             CallableStatement cs = con.prepareCall(sql)) {
+
+            cs.setInt(1, idMemoria);
+            cs.setInt(2, idUsuario);
+
+            try (ResultSet rs = cs.executeQuery()) {
+                if (rs.next()) {
+                    return new Resultado(true, rs.getString("mensaje"));
+                }
+            }
+
+        } catch (SQLException e) {
+            String msg = e.getMessage();
+            if (msg.contains("no existe")) {
+                return new Resultado(false, "La memoria no existe");
+            } else if (msg.contains("permisos")) {
+                return new Resultado(false, "No tenés permisos para eliminar esta memoria");
+            } else {
+                return new Resultado(false, "Error al dar de baja la memoria");
+            }
+        }
+
+        return new Resultado(false, "Error desconocido");
+    }
 }

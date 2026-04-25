@@ -21,7 +21,18 @@ public class PantallaCambiarContrasena extends JFrame {
     private JLabel errorNueva;
     private JLabel errorConfirmar;
 
-    public PantallaCambiarContrasena(JFrame parent) {
+    private final UsuarioDAO.Usuario usuario;
+
+    public PantallaCambiarContrasena(JFrame parent, UsuarioDAO.Usuario usuario) {
+        if (usuario == null) {
+            JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
+            dispose();
+            new LoginPanel();
+            this.usuario = null;
+            return;
+        }
+        this.usuario = usuario;
+        
         setTitle("Cambiar contraseña");
         setSize(1920, 1080);
         setLocationRelativeTo(null);
@@ -184,21 +195,25 @@ public class PantallaCambiarContrasena extends JFrame {
             return;
         }
 
-        // 4. CONTRASEÑA ACTUAL (para futuro)
-        boolean passwordCorrecta = true; // TODO BDD
+        // 4. LLAMADA AL DAO PARA CAMBIAR EN BDD
+        UsuarioDAO.Resultado res = UsuarioDAO.cambiarContrasena(usuario.idUsuario, actual, nueva);
 
-        if (!passwordCorrecta) {
-            errorActual.setText("Contraseña actual incorrecta");
-            return;
+        if (res.ok) {
+            PantallaPrincipal.agregarNotificacion("Cambiaste tu contraseña con éxito ✓");
+            JOptionPane.showMessageDialog(this, "Contraseña cambiada con éxito. Por favor, iniciá sesión nuevamente.");
+            // Cerrar todas las ventanas y volver al login
+            Window[] windows = Window.getWindows();
+            for (Window w : windows) {
+                w.dispose();
+            }
+            new LoginPanel();
+        } else {
+            if (res.mensaje.contains("Contraseña actual incorrecta")) {
+                errorActual.setText("Contraseña actual incorrecta");
+            } else {
+                JOptionPane.showMessageDialog(this, "Error: " + res.mensaje);
+            }
         }
-
-        // TODO: GUARDAR EN BDD
-
-        JOptionPane.showMessageDialog(this, "Contraseña cambiada con éxito");
-
-        PantallaPrincipal.agregarNotificacion("Contraseña cambiada con éxito");
-
-        dispose();
     }
 
     private void limpiarErrores() {

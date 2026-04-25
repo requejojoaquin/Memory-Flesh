@@ -2,9 +2,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
-
+ 
 public class Pantallaajustes extends JFrame {
-
+ 
     private static final Color BG_COLOR      = new Color(0x1E1B4B);
     private static final Color ACCENT_COLOR  = new Color(0x9999FF);
     private static final Color TEXT_MAIN     = new Color(0xF8FAFC);
@@ -14,34 +14,42 @@ public class Pantallaajustes extends JFrame {
     private static final Color BTN_ROJO      = new Color(0x522123);
     private static final Color BTN_ROJO_DARK = new Color(0x2D1314);
     private static final Color CARD_COLOR    = new Color(0x27226E);
-
-    // TODO: REEMPLAZAR CON DATOS REALES DE LA BDD
-    private String nombreUsuario = "";
-    private String correoUsuario = "";
-
-    public Pantallaajustes(JFrame parent) {
+ 
+    // Datos reales del usuario logueado
+    private final UsuarioDAO.Usuario usuario;
+ 
+    public Pantallaajustes(JFrame parent, UsuarioDAO.Usuario usuario) {
+        if (usuario == null) {
+            JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
+            dispose();
+            new LoginPanel();
+            this.usuario = null;
+            return;
+        }
+        this.usuario = usuario;
+ 
         setTitle("Ajustes y seguridad - Memory Flesh");
         setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         setResizable(false);
-
+ 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(BG_COLOR);
         root.add(buildHeader(parent), BorderLayout.NORTH);
         root.add(buildContent(),      BorderLayout.CENTER);
-
+ 
         setContentPane(root);
         setVisible(true);
     }
-
+ 
     // ─── HEADER ──────────────────────────────────────────────────────────────
-
+ 
     private JPanel buildHeader(JFrame parent) {
         JPanel header = new JPanel(null);
         header.setBackground(BG_COLOR);
         header.setPreferredSize(new Dimension(0, 64));
-
+ 
         JLabel btnAtras = new JLabel("✕   Atrás");
         btnAtras.setForeground(TEXT_MAIN);
         btnAtras.setFont(new Font("SansSerif", Font.BOLD, 20));
@@ -56,8 +64,7 @@ public class Pantallaajustes extends JFrame {
             @Override public void mouseExited(MouseEvent e)  { btnAtras.setForeground(TEXT_MAIN); }
         });
         header.add(btnAtras);
-
-        // Línea divisoria debajo del header
+ 
         JPanel divider = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 g.setColor(DIVIDER_COLOR);
@@ -66,22 +73,22 @@ public class Pantallaajustes extends JFrame {
         };
         divider.setBounds(0, 57, 1920, 6);
         header.add(divider);
-
+ 
         return header;
     }
-
+ 
     // ─── CONTENIDO ───────────────────────────────────────────────────────────
-
+ 
     private JPanel buildContent() {
         JPanel wrapper = new JPanel(new GridBagLayout());
         wrapper.setBackground(BG_COLOR);
-
+ 
         JPanel content = new JPanel();
         content.setBackground(BG_COLOR);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setPreferredSize(new Dimension(860, 800));
         content.setBorder(BorderFactory.createEmptyBorder(48, 0, 48, 0));
-
+ 
         // ── Título principal ──
         JLabel lblTitulo = new JLabel("Ajustes y seguridad");
         lblTitulo.setForeground(TEXT_MAIN);
@@ -89,7 +96,7 @@ public class Pantallaajustes extends JFrame {
         lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(lblTitulo);
         content.add(Box.createVerticalStrut(10));
-
+ 
         // ── Subtítulo ──
         JLabel lblSub = new JLabel("Gestionar datos de cuenta.");
         lblSub.setForeground(TEXT_MAIN);
@@ -97,94 +104,90 @@ public class Pantallaajustes extends JFrame {
         lblSub.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(lblSub);
         content.add(Box.createVerticalStrut(20));
-
-        // ── Datos usuario ──
+ 
+        // ── Datos usuario — cargados desde el objeto Usuario ──
         JPanel datosPanel = new JPanel(new GridLayout(2, 2, 60, 6));
         datosPanel.setBackground(BG_COLOR);
         datosPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
         datosPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JLabel lblNomLabel = smallLabel("Nombre de usuario");
+ 
+        JLabel lblNomLabel   = smallLabel("Nombre de usuario");
         JLabel lblEmailLabel = smallLabel("Correo electrónico");
-
-        // TODO: REEMPLAZAR CON DATOS DE LA BDD (Usuario.nomUsuario y Usuario.email)
-        JLabel lblNomVal   = valueLabel(nombreUsuario.isEmpty() ? "—" : nombreUsuario);
-        JLabel lblEmailVal = valueLabel(correoUsuario.isEmpty() ? "—" : correoUsuario);
-
+        JLabel lblNomVal     = valueLabel(usuario.nombre);
+        JLabel lblEmailVal   = valueLabel(usuario.mail);
+ 
         datosPanel.add(lblNomLabel);
         datosPanel.add(lblEmailLabel);
         datosPanel.add(lblNomVal);
         datosPanel.add(lblEmailVal);
         content.add(datosPanel);
         content.add(Box.createVerticalStrut(28));
-
+ 
         // ── Sección: Cambiar contraseña ──
         content.add(buildDivider());
         content.add(Box.createVerticalStrut(24));
-
+ 
         JLabel lblCambiarT = sectionTitle("Cambiar contraseña");
         content.add(lblCambiarT);
         content.add(Box.createVerticalStrut(6));
-
+ 
         JLabel lblCambiarD = descLabel("En caso de no recordar tu contraseña o mejorar tu seguridad, te recomendamos que no utilices la misma contraseña que uses en otras cuentas.");
         content.add(lblCambiarD);
         content.add(Box.createVerticalStrut(14));
-
+ 
         JButton btnCambiar = redButton("Cambia contraseña");
         btnCambiar.addActionListener(e -> {
             setVisible(false);
-            new PantallaCambiarContrasena(Pantallaajustes.this);
+            new PantallaCambiarContrasena(Pantallaajustes.this, usuario);
         });
-            // TODO: NAVEGAR A PANTALLA CAMBIAR CONTRASEÑA
         content.add(btnCambiar);
         content.add(Box.createVerticalStrut(28));
-
+ 
         // ── Sección: Cerrar sesión ──
         content.add(buildDivider());
         content.add(Box.createVerticalStrut(24));
-
+ 
         JLabel lblCerrarT = sectionTitle("Cerrar sesión");
         content.add(lblCerrarT);
         content.add(Box.createVerticalStrut(6));
-
+ 
         JLabel lblCerrarD = descLabel("Recomendamos cerrar la sesión una vez hecho el cambio de contraseña para verificar que hayas puesto de manera correcta el nuevo cambio.");
         content.add(lblCerrarD);
         content.add(Box.createVerticalStrut(14));
-
+ 
         JButton btnCerrar = redButton("Cerrar sesión");
         btnCerrar.addActionListener(e -> {
-            // TODO: LIMPIAR SESION DEL USUARIO EN BDD/MEMORIA ANTES DE REDIRIGIR
             dispose();
             new LoginPanel();
         });
         content.add(btnCerrar);
         content.add(Box.createVerticalStrut(28));
-
+ 
         // ── Sección: Eliminar cuenta ──
         content.add(buildDivider());
         content.add(Box.createVerticalStrut(24));
-
+ 
         JLabel lblEliminarT = sectionTitle("Eliminar cuenta");
         content.add(lblEliminarT);
         content.add(Box.createVerticalStrut(6));
-
+ 
         JLabel lblEliminarD = descLabel("Tu perfil, fotos, comentarios y demás se eliminarán definitivamente.");
         content.add(lblEliminarD);
         content.add(Box.createVerticalStrut(14));
-
+ 
         JButton btnEliminar = redButton("Eliminar cuenta");
         btnEliminar.addActionListener(e -> {
             setVisible(false);
-            new PantallaEliminarCuenta(Pantallaajustes.this);
+            new PantallaEliminarCuenta(Pantallaajustes.this, usuario);
         });
         content.add(btnEliminar);
-
+ 
         wrapper.add(content);
         return wrapper;
     }
-
+ 
     // ─── HELPERS ─────────────────────────────────────────────────────────────
-
+ 
     private JPanel buildDivider() {
         JPanel d = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
@@ -197,21 +200,21 @@ public class Pantallaajustes extends JFrame {
         d.setAlignmentX(Component.LEFT_ALIGNMENT);
         return d;
     }
-
+ 
     private JLabel smallLabel(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_DIM);
         l.setFont(new Font("SansSerif", Font.PLAIN, 15));
         return l;
     }
-
+ 
     private JLabel valueLabel(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_MAIN);
         l.setFont(new Font("SansSerif", Font.BOLD, 15));
         return l;
     }
-
+ 
     private JLabel sectionTitle(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_MAIN);
@@ -219,7 +222,7 @@ public class Pantallaajustes extends JFrame {
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
     }
-
+ 
     private JLabel descLabel(String text) {
         JLabel l = new JLabel("<html><body style='width:700px'>" + text + "</body></html>");
         l.setForeground(TEXT_GRAY);
@@ -227,7 +230,7 @@ public class Pantallaajustes extends JFrame {
         l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
     }
-
+ 
     private JButton redButton(String text) {
         JButton btn = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
@@ -251,8 +254,8 @@ public class Pantallaajustes extends JFrame {
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return btn;
     }
-
+ 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new Pantallaajustes(null));
+        SwingUtilities.invokeLater(() -> new Pantallaajustes(null, null));
     }
 }

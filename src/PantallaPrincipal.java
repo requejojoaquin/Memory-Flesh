@@ -4,6 +4,10 @@ import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import javax.imageio.ImageIO;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -28,24 +32,24 @@ public class PantallaPrincipal extends JFrame {
     private int idUsuarioActual;
     private String nombreUsuario;
     private int idRolUsuario;
-    // TODO: REEMPLAZAR POR LISTA DE LA BDD
-    private java.util.List<String[]> publicaciones = new java.util.ArrayList<>();
+    private UsuarioDAO.Usuario usuarioActual;
+    private java.util.List<UsuarioDAO.Memoria> memorias = new java.util.ArrayList<>();
     public static java.util.List<String> notificacionesGlobal = new java.util.ArrayList<>();
     public static void agregarNotificacion(String texto) {
         notificacionesGlobal.add(0, texto);
     }
 
-    // Panel de imagen en crear post
     private JPanel imgBox;
     private BufferedImage imagenSeleccionada = null;
+    private String rutaImagenSeleccionada = null;
 
-    // Constructor que recibe el usuario logueado
     public PantallaPrincipal(UsuarioDAO.Usuario usuario) {
-        // Guardar datos del usuario
         this.idUsuarioActual = usuario.idUsuario;
-        this.nombreUsuario = usuario.nombre;
-        this.idRolUsuario = usuario.idRol;
-        
+        this.nombreUsuario   = usuario.nombre;
+        this.idRolUsuario    = usuario.idRol;
+        this.usuarioActual   = usuario;
+        this.memorias        = UsuarioDAO.obtenerMemoriasPublicas();
+
         setTitle("Inicio - Memory Flesh");
         setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -98,26 +102,22 @@ public class PantallaPrincipal extends JFrame {
         header.setPreferredSize(new Dimension(0, 64));
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, DIVIDER_COLOR));
 
-        // "Inicio" pegado a la izquierda
         JLabel inicio = new JLabel("  Inicio");
         inicio.setForeground(new Color(0xFFFFFF));
         inicio.setFont(new Font("SansSerif", Font.PLAIN, 22));
         inicio.setBorder(BorderFactory.createEmptyBorder(0, 16, 0, 0));
         header.add(inicio, BorderLayout.WEST);
 
-        // "MEMORY FLESH" centrado
         JLabel brand = new JLabel("MEMORY FLESH", SwingConstants.CENTER) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-                // sombra suave
                 g2.setColor(new Color(0, 0, 0, 0));
                 g2.setFont(getFont());
                 FontMetrics fm = g2.getFontMetrics();
                 int x = (getWidth() - fm.stringWidth(getText())) / 2;
                 int y = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
                 g2.drawString(getText(), x + 2, y + 2);
-                // texto principal
                 g2.setColor(TEXT_MAIN);
                 g2.drawString(getText(), x, y);
                 g2.dispose();
@@ -127,7 +127,6 @@ public class PantallaPrincipal extends JFrame {
         brand.setFont(new Font("SansSerif", Font.BOLD, 28));
         header.add(brand, BorderLayout.CENTER);
 
-        // Buscar personas a la derecha
         JPanel searchBox = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8)) {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -179,17 +178,16 @@ public class PantallaPrincipal extends JFrame {
         JButton btnNotif = sidebarButton("🔔", "Notificaciones");
         btnNotif.addActionListener(e -> toggleNotifDrawer());
 
-        // TODO: LABEL CAMBIARA AL NOMBRE DEL USUARIO LOGUEADO CUANDO HAYA BDD
         JButton btnPerfil = sidebarButton("👤", nombreUsuario);
         btnPerfil.addActionListener(e -> {
             setVisible(false);
-            new PantallaPerfil(PantallaPrincipal.this);
+            new PantallaPerfil(PantallaPrincipal.this, usuarioActual);
         });
 
         JButton btnMas = sidebarButton("•••", "Más");
         btnMas.addActionListener(e -> {
             setVisible(false);
-            new Pantallaajustes(PantallaPrincipal.this);
+            new Pantallaajustes(PantallaPrincipal.this, usuarioActual);
         });
 
         JButton btnPublicar = createPublicarButton();
@@ -258,12 +256,10 @@ public class PantallaPrincipal extends JFrame {
         feed.setLayout(new BoxLayout(feed, BoxLayout.Y_AXIS));
         feed.setBorder(BorderFactory.createEmptyBorder(32, 0, 32, 0));
 
-        // TODO: REEMPLAZAR CON DATOS DE LA BDD
-        for (String[] pub : publicaciones) {
-            feed.add(buildMemoryCard(pub[0], pub[1]));
+        for (UsuarioDAO.Memoria mem : memorias) {
+            feed.add(buildMemoryCard(mem));
             feed.add(Box.createVerticalStrut(24));
         }
-        // TODO: FIN DATOS DE LA BDD
 
         feed.add(Box.createVerticalGlue());
 
@@ -290,7 +286,8 @@ public class PantallaPrincipal extends JFrame {
         return wrapper;
     }
 
-    private JPanel buildMemoryCard(String titulo, String descripcion) {
+    private JPanel buildMemoryCard(UsuarioDAO.Memoria mem) {
+        // Card con fondo redondeado
         JPanel card = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -305,46 +302,91 @@ public class PantallaPrincipal extends JFrame {
         };
         card.setOpaque(false);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setBorder(BorderFactory.createEmptyBorder(16, 16, 16, 16));
+        card.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
         card.setAlignmentX(Component.CENTER_ALIGNMENT);
-        card.setMaximumSize(new Dimension(500, Integer.MAX_VALUE));
-        card.setMinimumSize(new Dimension(500, 50));
+        card.setMaximumSize(new Dimension(520, Integer.MAX_VALUE));
+        card.setMinimumSize(new Dimension(520, 50));
 
-        JLabel lblTitulo = new JLabel(titulo);
+        // ── Autor ──
+        JLabel lblAutor = new JLabel("@" + mem.nombreUsuario);
+        lblAutor.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblAutor.setForeground(new Color(0x9999FF));
+        lblAutor.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        card.add(lblAutor);
+        card.add(Box.createVerticalStrut(4));
+
+        // ── Título ──
+        JLabel lblTitulo = new JLabel(mem.titulo);
         lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
         lblTitulo.setForeground(TEXT_MAIN);
-        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 18));
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 17));
         card.add(lblTitulo);
         card.add(Box.createVerticalStrut(10));
 
-        JPanel imgPlaceholder = new JPanel() {
+        // ── Imagen: cuadrada, escalada sin distorsión ──
+        BufferedImage imgCargada = null;
+        if (mem.contenido != null && !mem.contenido.isEmpty()) {
+            try {
+                File f = new File("uploads", mem.contenido);
+                if (f.exists()) imgCargada = ImageIO.read(f);
+            } catch (Exception ignored) {}
+        }
+        final BufferedImage imgFinal = imgCargada;
+
+        // Tamaño fijo cuadrado para la imagen
+        final int IMG_SIZE = 460;
+
+        JPanel imgPanel = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                g.setColor(new Color(0x3D3580));
-                g.fillRect(0, 0, getWidth(), getHeight());
-                g.setColor(new Color(0x9999FF));
-                g.setFont(new Font("SansSerif", Font.PLAIN, 13));
-                FontMetrics fm = g.getFontMetrics();
-                String msg = "[ Imagen de la memoria ]";
-                g.drawString(msg, (getWidth() - fm.stringWidth(msg)) / 2, getHeight() / 2);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                if (imgFinal != null) {
+                    // Escala manteniendo proporción, centra en el cuadrado
+                    int iw = imgFinal.getWidth();
+                    int ih = imgFinal.getHeight();
+                    double scale = Math.min((double) getWidth() / iw, (double) getHeight() / ih);
+                    int nw = (int)(iw * scale);
+                    int nh = (int)(ih * scale);
+                    int ox = (getWidth() - nw) / 2;
+                    int oy = (getHeight() - nh) / 2;
+                    g2.setColor(new Color(0x1A1740));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    g2.drawImage(imgFinal, ox, oy, nw, nh, null);
+                } else {
+                    g2.setColor(new Color(0x3D3580));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    g2.setColor(new Color(0x9999FF));
+                    g2.setFont(new Font("SansSerif", Font.PLAIN, 13));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String msg = "[ Imagen de la memoria ]";
+                    g2.drawString(msg, (getWidth() - fm.stringWidth(msg)) / 2, getHeight() / 2);
+                }
+                g2.dispose();
             }
         };
-        imgPlaceholder.setPreferredSize(new Dimension(Integer.MAX_VALUE, 280));
-    imgPlaceholder.setMaximumSize(new Dimension(Integer.MAX_VALUE, 280));
-    imgPlaceholder.setMinimumSize(new Dimension(100, 280));
-    imgPlaceholder.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.add(imgPlaceholder);
+        imgPanel.setPreferredSize(new Dimension(IMG_SIZE, IMG_SIZE));
+        imgPanel.setMaximumSize(new Dimension(IMG_SIZE, IMG_SIZE));
+        imgPanel.setMinimumSize(new Dimension(IMG_SIZE, IMG_SIZE));
+        imgPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        card.add(imgPanel);
         card.add(Box.createVerticalStrut(10));
 
-        JTextArea lblDesc = new JTextArea(descripcion);
-        lblDesc.setForeground(TEXT_DESC);
-        lblDesc.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        lblDesc.setOpaque(false);
-        lblDesc.setEditable(false);
-        lblDesc.setLineWrap(true);
-        lblDesc.setWrapStyleWord(true);
-        lblDesc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
-        card.add(lblDesc);
+        // ── Descripción ──
+        String descText = (mem.descripcion != null && !mem.descripcion.isEmpty()) ? mem.descripcion : "";
+        if (!descText.isEmpty()) {
+            JTextArea lblDesc = new JTextArea(descText);
+            lblDesc.setForeground(TEXT_DESC);
+            lblDesc.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            lblDesc.setOpaque(false);
+            lblDesc.setEditable(false);
+            lblDesc.setLineWrap(true);
+            lblDesc.setWrapStyleWord(true);
+            lblDesc.setMaximumSize(new Dimension(IMG_SIZE, 60));
+            lblDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(lblDesc);
+        }
 
         return card;
     }
@@ -366,25 +408,18 @@ public class PantallaPrincipal extends JFrame {
         drawer.setLayout(new BoxLayout(drawer, BoxLayout.Y_AXIS));
         drawer.setBorder(BorderFactory.createEmptyBorder(28, 20, 28, 20));
 
-        JLabel title = new JLabel("Notificaciones");
+        JLabel title = new JLabel("Notificaciones", SwingConstants.CENTER);
         title.setForeground(TEXT_MAIN);
         title.setFont(new Font("SansSerif", Font.BOLD, 20));
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        title.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
         drawer.add(title);
         drawer.add(Box.createVerticalStrut(20));
 
-        // TODO: REEMPLAZAR CON NOTIFICACIONES REALES DE LA BDD
-        String[] notifs = {
-            "Tu memoria fue dada de baja",
-            "Tu memoria fue aprobada",
-            "Tu memoria se guardó con éxito",
-            "Tu memoria se eliminó correctamente",
-            "Contraseña cambiada con éxito"
-        };
         for (String n : notificacionesGlobal) {
             drawer.add(buildNotifItem(n));
             drawer.add(Box.createVerticalStrut(10));
         }
-        // TODO: FIN NOTIFICACIONES DE EJEMPLO
 
         return drawer;
     }
@@ -432,7 +467,6 @@ public class PantallaPrincipal extends JFrame {
         panel.setPreferredSize(new Dimension(780, 640));
         panel.setLayout(null);
 
-        // Botón atrás
         JLabel back = new JLabel("✕   Atrás");
         back.setForeground(TEXT_MAIN);
         back.setFont(new Font("SansSerif", Font.BOLD, 18));
@@ -445,7 +479,6 @@ public class PantallaPrincipal extends JFrame {
         });
         panel.add(back);
 
-        // Campo título — editable con placeholder
         JTextField titulo = new JTextField("Agregar Título...");
         titulo.setFont(new Font("SansSerif", Font.BOLD, 18));
         titulo.setBounds(160, 16, 590, 46);
@@ -477,14 +510,13 @@ public class PantallaPrincipal extends JFrame {
         });
         panel.add(titulo);
 
-        // Box de imagen — clickeable para cargar desde archivo
         imgBox = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                 if (imagenSeleccionada != null) {
-                    // Dibuja la imagen escalada manteniendo proporción
                     int iw = imagenSeleccionada.getWidth();
                     int ih = imagenSeleccionada.getHeight();
                     double scale = Math.min((double) getWidth() / iw, (double) getHeight() / ih);
@@ -517,90 +549,53 @@ public class PantallaPrincipal extends JFrame {
         });
         panel.add(imgBox);
 
-        // Campo descripción — editable con placeholder
         JTextArea desc = new JTextArea("Agregar descripción...");
-desc.setFont(new Font("SansSerif", Font.PLAIN, 14));
-desc.setBounds(160, 412, 440, 90);
-desc.setBackground(CARD_COLOR);
-desc.setForeground(new Color(0x9999FF));
-desc.setCaretColor(TEXT_MAIN);
-desc.setLineWrap(true);
-desc.setWrapStyleWord(true);
-desc.setBorder(BorderFactory.createCompoundBorder(
-    BorderFactory.createLineBorder(CARD_BORDER, 2),
-    BorderFactory.createEmptyBorder(6, 10, 6, 10)
-));
-desc.addFocusListener(new FocusAdapter() {
-    @Override public void focusGained(FocusEvent e) {
-        if (desc.getText().equals("Agregar descripción...")) {
-            desc.setText("");
-            desc.setForeground(TEXT_MAIN);
-        }
-    }
-    @Override public void focusLost(FocusEvent e) {
-        if (desc.getText().isEmpty()) {
-            desc.setText("Agregar descripción...");
-            desc.setForeground(new Color(0x9999FF));
-        }
-    }
-});
-
-JLabel charCount = new JLabel("0/110");
-charCount.setForeground(new Color(0x9999FF));
-charCount.setFont(new Font("SansSerif", Font.PLAIN, 12));
-charCount.setBounds(545, 500, 60, 20);
-
-desc.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-    private void update() {
-        String texto = desc.getText();
-        if (texto.equals("Agregar descripción...")) { charCount.setText("0/110"); return; }
-        if (texto.length() > 110) desc.setText(texto.substring(0, 110));
-        charCount.setText(Math.min(texto.length(), 110) + "/110");
-    }
-    public void insertUpdate(javax.swing.event.DocumentEvent e)  { update(); }
-    public void removeUpdate(javax.swing.event.DocumentEvent e)  { update(); }
-    public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
-});
-
-panel.add(desc);
-panel.add(charCount);
-
-        // Botón Publicar
-        JButton publicar = new JButton("Publicar") {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2.setColor(getModel().isRollover() ? BUTTON_COLOR.brighter() : BUTTON_COLOR);
-                g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 12, 12));
-                g2.dispose();
-                super.paintComponent(g);
+        desc.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        desc.setBounds(160, 412, 440, 90);
+        desc.setBackground(CARD_COLOR);
+        desc.setForeground(new Color(0x9999FF));
+        desc.setCaretColor(TEXT_MAIN);
+        desc.setLineWrap(true);
+        desc.setWrapStyleWord(true);
+        desc.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(CARD_BORDER, 2),
+            BorderFactory.createEmptyBorder(6, 10, 6, 10)
+        ));
+        desc.addFocusListener(new FocusAdapter() {
+            @Override public void focusGained(FocusEvent e) {
+                if (desc.getText().equals("Agregar descripción...")) {
+                    desc.setText("");
+                    desc.setForeground(TEXT_MAIN);
+                }
             }
-        };
-        publicar.setOpaque(false);
-        publicar.setContentAreaFilled(false);
-        publicar.setBorderPainted(false);
-        publicar.setFocusPainted(false);
-        publicar.setForeground(Color.WHITE);
-        publicar.setFont(new Font("SansSerif", Font.BOLD, 15));
-        publicar.setBounds(614, 320, 140, 48);
-        publicar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        publicar.addActionListener(e -> {
-            String t = titulo.getText().trim();
-            String d = desc.getText().trim();
-            if (t.isEmpty() || t.equals("Agregar Título...")) return;
-            if (d.equals("Agregar descripción...")) d = "";
-            // TODO: GUARDAR EN BDD EN VEZ DEL ARRAYLIST
-            publicaciones.add(0, new String[]{t, d, ""});
-            centerContainer.remove(centerContainer.getComponent(0));
-            centerContainer.add(buildFeed(), "feed", 0);
-            showPanel("feed");
-            titulo.setText("Agregar Título...");
-            desc.setText("Agregar descripción...");
-            imagenSeleccionada = null;
+            @Override public void focusLost(FocusEvent e) {
+                if (desc.getText().isEmpty()) {
+                    desc.setText("Agregar descripción...");
+                    desc.setForeground(new Color(0x9999FF));
+                }
+            }
         });
-        panel.add(publicar);
 
-        // Botón Público/Privado
+        JLabel charCount = new JLabel("0/110");
+        charCount.setForeground(new Color(0x9999FF));
+        charCount.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        charCount.setBounds(545, 500, 60, 20);
+
+        desc.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            private void update() {
+                String texto = desc.getText();
+                if (texto.equals("Agregar descripción...")) { charCount.setText("0/110"); return; }
+                if (texto.length() > 110) desc.setText(texto.substring(0, 110));
+                charCount.setText(Math.min(texto.length(), 110) + "/110");
+            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e)  { update(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e)  { update(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
+        });
+
+        panel.add(desc);
+        panel.add(charCount);
+
         JButton privacidad = new JButton("🔒 Público") {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -631,6 +626,72 @@ panel.add(charCount);
         });
         panel.add(privacidad);
 
+        JButton publicar = new JButton("Publicar") {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getModel().isRollover() ? BUTTON_COLOR.brighter() : BUTTON_COLOR);
+                g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 12, 12));
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        publicar.setOpaque(false);
+        publicar.setContentAreaFilled(false);
+        publicar.setBorderPainted(false);
+        publicar.setFocusPainted(false);
+        publicar.setForeground(Color.WHITE);
+        publicar.setFont(new Font("SansSerif", Font.BOLD, 15));
+        publicar.setBounds(614, 320, 140, 48);
+        publicar.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        publicar.addActionListener(e -> {
+            String t = titulo.getText().trim();
+            String d = desc.getText().trim();
+            if (t.isEmpty() || t.equals("Agregar Título...")) return;
+            if (d.equals("Agregar descripción...")) d = "";
+
+            boolean esPublica = privacidad.getText().contains("Público");
+            String nombreArchivoFinal = "";
+
+            if (imagenSeleccionada != null && rutaImagenSeleccionada != null) {
+                try {
+                    Path carpetaUploads = Paths.get("uploads");
+                    if (!Files.exists(carpetaUploads)) Files.createDirectories(carpetaUploads);
+                    String extension = "";
+                    int i = rutaImagenSeleccionada.lastIndexOf('.');
+                    if (i > 0) extension = rutaImagenSeleccionada.substring(i);
+                    nombreArchivoFinal = "img_" + System.currentTimeMillis() + extension;
+                    Path destino = carpetaUploads.resolve(nombreArchivoFinal);
+                    Files.copy(Paths.get(rutaImagenSeleccionada), destino, StandardCopyOption.REPLACE_EXISTING);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Error al procesar la imagen: " + ex.getMessage());
+                    return;
+                }
+            }
+
+            UsuarioDAO.Resultado res = UsuarioDAO.crearMemoria(t, nombreArchivoFinal, d, idUsuarioActual, esPublica);
+            if (!res.ok) {
+                JOptionPane.showMessageDialog(PantallaPrincipal.this,
+                    "Error al publicar: " + res.mensaje, "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            memorias = UsuarioDAO.obtenerMemoriasPublicas();
+            centerContainer.remove(0);
+            centerContainer.add(buildFeed(), "feed", 0);
+            showPanel("feed");
+
+            agregarNotificacion("Memoria publicada con éxito ✓");
+
+            titulo.setText("Agregar Título...");
+            titulo.setForeground(new Color(0x9999FF));
+            desc.setText("Agregar descripción...");
+            desc.setForeground(new Color(0x9999FF));
+            imagenSeleccionada = null;
+            rutaImagenSeleccionada = null;
+        });
+        panel.add(publicar);
+
         wrapper.add(panel);
         return wrapper;
     }
@@ -640,11 +701,11 @@ panel.add(charCount);
         chooser.setDialogTitle("Seleccioná una imagen");
         chooser.setFileFilter(new FileNameExtensionFilter("Imágenes (jpg, png, gif, bmp)", "jpg", "jpeg", "png", "gif", "bmp"));
         chooser.setAcceptAllFileFilterUsed(false);
-
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
             try {
                 imagenSeleccionada = ImageIO.read(file);
+                rutaImagenSeleccionada = file.getAbsolutePath();
                 imgBox.repaint();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "No se pudo cargar la imagen.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -656,6 +717,13 @@ panel.add(charCount);
 
     private void toggleNotifDrawer() {
         notifOpen = !notifOpen;
+        if (notifOpen) {
+            // Reconstruir el drawer para mostrar notificaciones actualizadas
+            layeredPane.remove(notifDrawer);
+            notifDrawer = buildNotifDrawer();
+            notifDrawer.setBounds(320, 64, 360, layeredPane.getHeight() - 64);
+            layeredPane.add(notifDrawer, JLayeredPane.PALETTE_LAYER);
+        }
         notifDrawer.setVisible(notifOpen);
         layeredPane.repaint();
     }

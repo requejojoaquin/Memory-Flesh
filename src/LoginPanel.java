@@ -226,7 +226,7 @@ button.setMaximumSize(new Dimension(220, 44));
         if (email.equals("Correo electrónico*") || email.isEmpty()) {
             emailErrorLabel.setText("Este campo no puede estar vacío");
             valid = false;
-        } else if (!email.matches("^[a-zA-Z0-9._%+-]+@gmail\\.com$")) {
+        } else if (!email.contains("@") || !email.contains(".com")) {
             emailErrorLabel.setText("Correo con formato inválido");
             valid = false;
         } else {

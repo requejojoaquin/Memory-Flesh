@@ -15,7 +15,18 @@ public class PantallaEliminarCuenta extends JFrame {
     private JPasswordField passwordField;
     private JLabel errorPassword;
 
-    public PantallaEliminarCuenta(JFrame parent) {
+    private final UsuarioDAO.Usuario usuario;
+
+    public PantallaEliminarCuenta(JFrame parent, UsuarioDAO.Usuario usuario) {
+        if (usuario == null) {
+            JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
+            dispose();
+            new LoginPanel();
+            this.usuario = null;
+            return;
+        }
+        this.usuario = usuario;
+        
         setTitle("Eliminar cuenta");
         setSize(1920, 1080);
         setLocationRelativeTo(null);
@@ -142,14 +153,6 @@ public class PantallaEliminarCuenta extends JFrame {
             return;
         }
 
-        // TODO: VALIDAR CONTRASEÑA CON BDD
-        boolean passwordCorrecta = true;
-
-        if (!passwordCorrecta) {
-            errorPassword.setText("Contraseña incorrecta");
-            return;
-        }
-
         // Mostrar confirmación
         mostrarConfirmacion();
     }
@@ -175,20 +178,31 @@ public class PantallaEliminarCuenta extends JFrame {
         panel.add(txt);
 
         // botón confirmar
-        JButton confirmar = redButton("Confirmar");
-        confirmar.setBounds(135, 90, 120, 40);
+        JButton confirmarBtn = redButton("Confirmar");
+        confirmarBtn.setBounds(135, 90, 120, 40);
 
-        confirmar.addActionListener(e -> {
+        confirmarBtn.addActionListener(e -> {
+            String pass = new String(passwordField.getPassword());
+            UsuarioDAO.Resultado res = UsuarioDAO.eliminarCuenta(usuario.idUsuario, pass);
 
-            // TODO: ELIMINAR USUARIO EN BDD
-
-            PantallaPrincipal.agregarNotificacion("Cuenta eliminada correctamente");
-
-            dialog.dispose();
-            dispose();
+            if (res.ok) {
+                JOptionPane.showMessageDialog(this, "Cuenta eliminada correctamente");
+                dialog.dispose();
+                dispose();
+                
+                // Cerrar todas las ventanas y volver al login
+                Window[] windows = Window.getWindows();
+                for (Window window : windows) {
+                    window.dispose();
+                }
+                new LoginPanel();
+            } else {
+                JOptionPane.showMessageDialog(this, "Error: " + res.mensaje);
+                dialog.dispose();
+            }
         });
 
-        panel.add(confirmar);
+        panel.add(confirmarBtn);
 
         // botón cerrar (X)
         JLabel cerrar = new JLabel("✕");
@@ -253,12 +267,9 @@ public class PantallaEliminarCuenta extends JFrame {
         JLabel l = new JLabel("", SwingConstants.CENTER);
         l.setForeground(new Color(0xFF4D4D));
         l.setFont(new Font("SansSerif", Font.PLAIN, 13));
-
-        // 🔴 CLAVE: mismo ancho que el input
         l.setMaximumSize(new Dimension(400, 20));
         l.setPreferredSize(new Dimension(400, 20));
         l.setAlignmentX(Component.CENTER_ALIGNMENT);
-
         return l;
     }
 
@@ -272,7 +283,6 @@ public class PantallaEliminarCuenta extends JFrame {
                 super.paintComponent(g);
             }
         };
-
         btn.setOpaque(false);
         btn.setContentAreaFilled(false);
         btn.setBorderPainted(false);
@@ -281,7 +291,6 @@ public class PantallaEliminarCuenta extends JFrame {
         btn.setPreferredSize(new Dimension(220, 55));
         btn.setMaximumSize(new Dimension(220, 55)); 
         btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-
         return btn;
     }
 }

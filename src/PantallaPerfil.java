@@ -2,6 +2,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
 
 public class PantallaPerfil extends JFrame {
 
@@ -17,15 +20,29 @@ public class PantallaPerfil extends JFrame {
     private static final Color MENU_ELIMINAR = new Color(0x2D1314);
     private static final Color MENU_BTN      = new Color(0x6157E8);
 
-    // TODO: REEMPLAZAR CON DATOS REALES DE LA BDD (Usuario + Memoria)
-    private String nombreUsuario = "Usuario";
+    // Datos reales del usuario logueado
+    private final UsuarioDAO.Usuario usuario;
     private int cantPublicaciones = 0;
     private boolean viendoPublicas = true;
 
     private JPanel menuDesplegable;
     private JPanel gridPanel;
+    private JLabel lblCantidad;
 
-    public PantallaPerfil(JFrame parent) {
+    // ── Modo eliminación ──
+    private boolean modoEliminar = false;
+    private final java.util.Set<Integer> seleccionadas = new java.util.HashSet<>();
+
+    public PantallaPerfil(JFrame parent, UsuarioDAO.Usuario usuario) {
+        if (usuario == null) {
+            JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
+            dispose();
+            new LoginPanel();
+            this.usuario = null;
+            return;
+        }
+        this.usuario = usuario;
+        
         setTitle("Perfil - Memory Flesh");
         setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -39,6 +56,9 @@ public class PantallaPerfil extends JFrame {
 
         setContentPane(root);
         setVisible(true);
+
+        // Cargar memorias iniciales (públicas)
+        refreshGrid(true);
     }
 
     // ─── TOP ─────────────────────────────────────────────────────────────────
@@ -62,7 +82,7 @@ public class PantallaPerfil extends JFrame {
         btnAtras.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
                 dispose();
-                parent.setVisible(true);
+                if (parent != null) parent.setVisible(true);
             }
             @Override public void mouseEntered(MouseEvent e) { btnAtras.setForeground(ACCENT_COLOR); }
             @Override public void mouseExited(MouseEvent e)  { btnAtras.setForeground(TEXT_MAIN); }
@@ -93,16 +113,14 @@ public class PantallaPerfil extends JFrame {
         top.add(avatar);
 
         // ── Nombre ──
-        // TODO: REEMPLAZAR nombreUsuario CON BDD (Usuario.nomUsuario)
-        JLabel lblNombre = new JLabel(nombreUsuario, SwingConstants.CENTER);
+        JLabel lblNombre = new JLabel(usuario.nombre, SwingConstants.CENTER);
         lblNombre.setForeground(TEXT_MAIN);
         lblNombre.setFont(new Font("SansSerif", Font.BOLD, 30));
         lblNombre.setBounds(760, 222, 400, 40);
         top.add(lblNombre);
 
         // ── Cantidad publicaciones ──
-        // TODO: REEMPLAZAR cantPublicaciones CON COUNT DE BDD
-        JLabel lblCantidad = new JLabel(String.valueOf(cantPublicaciones), SwingConstants.CENTER);
+        lblCantidad = new JLabel("0", SwingConstants.CENTER);
         lblCantidad.setForeground(TEXT_MAIN);
         lblCantidad.setFont(new Font("SansSerif", Font.BOLD, 24));
         lblCantidad.setBounds(760, 268, 400, 30);
@@ -118,13 +136,13 @@ public class PantallaPerfil extends JFrame {
         int eyeCX = 1920 / 2;
         int eyeY  = 338;
 
-        JPanel btnPublicas = eyeButton(false); // ojo sin tachar = públicas
-        JPanel btnPrivadas = eyeButton(true);  // ojo tachado   = privadas
+        JPanel btnPublicas = eyeButton(false);
+        JPanel btnPrivadas = eyeButton(true);
 
         btnPublicas.setBounds(eyeCX - 90, eyeY, 72, 54);
         btnPrivadas.setBounds(eyeCX + 18,  eyeY, 72, 54);
 
-        updateEyeStyle(btnPublicas, true);   // empieza seleccionado
+        updateEyeStyle(btnPublicas, true);
         updateEyeStyle(btnPrivadas, false);
 
         btnPublicas.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
@@ -135,7 +153,6 @@ public class PantallaPerfil extends JFrame {
                 viendoPublicas = true;
                 updateEyeStyle(btnPublicas, true);
                 updateEyeStyle(btnPrivadas, false);
-                // TODO: FILTRAR POR MEMORIAS PUBLICAS EN BDD
                 refreshGrid(true);
             }
         });
@@ -145,7 +162,6 @@ public class PantallaPerfil extends JFrame {
                 viendoPublicas = false;
                 updateEyeStyle(btnPrivadas, true);
                 updateEyeStyle(btnPublicas, false);
-                // TODO: FILTRAR POR MEMORIAS PRIVADAS EN BDD
                 refreshGrid(false);
             }
         });
@@ -247,9 +263,42 @@ public class PantallaPerfil extends JFrame {
         JButton btnEliminar = menuButton("Eliminar publicación", MENU_ELIMINAR);
         JButton btnAjustes  = menuButton("Ajustes cuenta",       MENU_BTN);
 
-        // TODO: CONECTAR CON BDD
-        btnEliminar.addActionListener(e -> { });
-        btnAjustes.addActionListener(e -> new Pantallaajustes(PantallaPerfil.this));
+        btnEliminar.addActionListener(e -> {
+            menuDesplegable.setVisible(false);
+            if (!modoEliminar) {
+                // Entrar en modo selección
+                modoEliminar = true;
+                seleccionadas.clear();
+                btnEliminar.setText("Confirmar eliminación");
+                refreshGrid(viendoPublicas);
+            } else {
+                // Confirmar eliminación de las seleccionadas
+                if (seleccionadas.isEmpty()) {
+                    modoEliminar = false;
+                    btnEliminar.setText("Eliminar publicación");
+                    refreshGrid(viendoPublicas);
+                    return;
+                }
+                int confirm = JOptionPane.showConfirmDialog(
+                    PantallaPerfil.this,
+                    "¿Eliminar " + seleccionadas.size() + " publicación(es)?",
+                    "Confirmar", JOptionPane.YES_NO_OPTION
+                );
+                if (confirm == JOptionPane.YES_OPTION) {
+                    for (int idMem : seleccionadas) {
+                        UsuarioDAO.darDeBajaMemoria(idMem, usuario.idUsuario);
+                    }
+                    seleccionadas.clear();
+                    modoEliminar = false;
+                    btnEliminar.setText("Eliminar publicación");
+                    refreshGrid(viendoPublicas);
+                }
+            }
+        });
+        btnAjustes.addActionListener(e -> {
+            setVisible(false);
+            new Pantallaajustes(PantallaPerfil.this, usuario);
+        });
 
         menu.add(btnEliminar);
         menu.add(Box.createVerticalStrut(8));
@@ -282,90 +331,197 @@ public class PantallaPerfil extends JFrame {
         return btn;
     }
 
-    // ─── GRID ────────────────────────────────────────────────────────────────
-
     private JPanel buildGrid() {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setBackground(BG_COLOR);
 
-        gridPanel = new JPanel(new GridLayout(0, 2, 20, 20));
+        gridPanel = new JPanel(new GridLayout(0, 3, 20, 20));
         gridPanel.setBackground(BG_COLOR);
         gridPanel.setBorder(BorderFactory.createEmptyBorder(28, 60, 28, 60));
-
-        // TODO: REEMPLAZAR CON MEMORIAS REALES DE LA BDD
-        // TODO: FIN DATOS DE EJEMPLO
 
         JScrollPane scroll = new JScrollPane(gridPanel);
         scroll.setBorder(null);
         scroll.getViewport().setBackground(BG_COLOR);
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
+        scroll.setPreferredSize(new Dimension(1800, 0));
 
         wrapper.add(scroll, BorderLayout.CENTER);
         return wrapper;
     }
 
-    private JPanel buildPublicacionCard(String titulo, String descripcion) {
+    private void refreshGrid(boolean soloPublicas) {
+        gridPanel.removeAll();
+        java.util.List<UsuarioDAO.Memoria> memorias = UsuarioDAO.obtenerMemoriasDeUsuario(usuario.idUsuario, soloPublicas);
+        
+        cantPublicaciones = memorias.size();
+        if (lblCantidad != null) lblCantidad.setText(String.valueOf(cantPublicaciones));
+
+        for (UsuarioDAO.Memoria mem : memorias) {
+            gridPanel.add(buildMemoryCardSmall(mem));
+        }
+
+        gridPanel.revalidate();
+        gridPanel.repaint();
+    }
+
+    private JPanel buildMemoryCardSmall(UsuarioDAO.Memoria mem) {
+        final boolean[] seleccionada = { seleccionadas.contains(mem.idMemoria) };
+
+        // Card con fondo redondeado — mismo estilo que el feed principal
         JPanel card = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(CARD_COLOR);
-                g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 14, 14));
-                g2.setColor(CARD_BORDER);
-                g2.setStroke(new BasicStroke(2f));
-                g2.draw(new RoundRectangle2D.Double(1, 1, getWidth()-2, getHeight()-2, 14, 14));
+                g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 16, 16));
+                // Borde rojo si está seleccionada para eliminar
+                g2.setColor(seleccionada[0] ? new Color(0xFF4444) : CARD_BORDER);
+                g2.setStroke(new BasicStroke(seleccionada[0] ? 3f : 2f));
+                g2.draw(new RoundRectangle2D.Double(1, 1, getWidth()-2, getHeight()-2, 16, 16));
                 g2.dispose();
             }
         };
         card.setOpaque(false);
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
-        card.setPreferredSize(new Dimension(0, 220));
 
-        // TODO: REEMPLAZAR CON IMAGEN REAL DE LA BDD
-        JPanel img = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                g.setColor(new Color(0x3D3580));
-                g.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g.setColor(ACCENT_COLOR);
-                g.setFont(new Font("SansSerif", Font.PLAIN, 12));
-                FontMetrics fm = g.getFontMetrics();
-                String t = "[ imagen ]";
-                g.drawString(t, (getWidth()-fm.stringWidth(t))/2, getHeight()/2);
-            }
-        };
-        img.setMaximumSize(new Dimension(Integer.MAX_VALUE, 130));
-        img.setPreferredSize(new Dimension(0, 130));
-        img.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.add(img);
-        card.add(Box.createVerticalStrut(10));
+        // ── Fila superior: autor + checkbox (solo en modo eliminar) ──
+        JPanel filaTop = new JPanel(new BorderLayout());
+        filaTop.setOpaque(false);
+        filaTop.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
 
-        JLabel lblT = new JLabel(titulo);
-        lblT.setForeground(TEXT_MAIN);
-        lblT.setFont(new Font("SansSerif", Font.BOLD, 15));
-        lblT.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.add(lblT);
+        JLabel lblAutor = new JLabel("@" + mem.nombreUsuario);
+        lblAutor.setForeground(ACCENT_COLOR);
+        lblAutor.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        filaTop.add(lblAutor, BorderLayout.WEST);
+
+        if (modoEliminar) {
+            // Checkbox dibujado a mano: cuadradito con o sin tilde
+            JPanel checkbox = new JPanel() {
+                @Override protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    int s = 18;
+                    int x = (getWidth() - s) / 2;
+                    int y = (getHeight() - s) / 2;
+                    // fondo
+                    g2.setColor(seleccionada[0] ? new Color(0xFF4444) : new Color(0x3D3580));
+                    g2.fillRoundRect(x, y, s, s, 5, 5);
+                    // borde
+                    g2.setColor(seleccionada[0] ? new Color(0xFF8888) : ACCENT_COLOR);
+                    g2.setStroke(new BasicStroke(1.5f));
+                    g2.drawRoundRect(x, y, s, s, 5, 5);
+                    // tilde si está seleccionada
+                    if (seleccionada[0]) {
+                        g2.setColor(Color.WHITE);
+                        g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawLine(x+4, y+9, x+7, y+13);
+                        g2.drawLine(x+7, y+13, x+14, y+5);
+                    }
+                    g2.dispose();
+                }
+            };
+            checkbox.setOpaque(false);
+            checkbox.setPreferredSize(new Dimension(26, 20));
+            checkbox.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            filaTop.add(checkbox, BorderLayout.EAST);
+
+            // Click en card completa o en checkbox
+            MouseAdapter toggleSelect = new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) {
+                    seleccionada[0] = !seleccionada[0];
+                    if (seleccionada[0]) seleccionadas.add(mem.idMemoria);
+                    else                 seleccionadas.remove(mem.idMemoria);
+                    card.repaint();
+                    checkbox.repaint();
+                }
+            };
+            card.addMouseListener(toggleSelect);
+            checkbox.addMouseListener(toggleSelect);
+            card.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        }
+
+        card.add(filaTop);
         card.add(Box.createVerticalStrut(4));
 
-        String descCorta = descripcion.length() > 60 ? descripcion.substring(0, 60) + "..." : descripcion;
-        JLabel lblD = new JLabel(descCorta);
-        lblD.setForeground(TEXT_DIM);
-        lblD.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        lblD.setAlignmentX(Component.LEFT_ALIGNMENT);
-        card.add(lblD);
+        // ── Título ──
+        JLabel lblTitulo = new JLabel(mem.titulo);
+        lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lblTitulo.setForeground(TEXT_MAIN);
+        lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 17));
+        card.add(lblTitulo);
+        card.add(Box.createVerticalStrut(10));
 
+        // ── Imagen ──
+        BufferedImage imgCargada = null;
+        if (mem.contenido != null && !mem.contenido.isEmpty()) {
+            try {
+                File f = new File("uploads", mem.contenido);
+                if (f.exists()) imgCargada = ImageIO.read(f);
+            } catch (Exception ignored) {}
+        }
+        final BufferedImage imgFinal = imgCargada;
+        final int IMG_H = 280;
+
+        JPanel imgPanel = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                if (imgFinal != null) {
+                    int iw = imgFinal.getWidth();
+                    int ih = imgFinal.getHeight();
+                    double scale = Math.min((double) getWidth() / iw, (double) getHeight() / ih);
+                    int nw = (int)(iw * scale);
+                    int nh = (int)(ih * scale);
+                    int ox = (getWidth()  - nw) / 2;
+                    int oy = (getHeight() - nh) / 2;
+                    g2.setColor(new Color(0x1A1740));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    g2.drawImage(imgFinal, ox, oy, nw, nh, null);
+                } else {
+                    g2.setColor(new Color(0x3D3580));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                    g2.setColor(CARD_BORDER);
+                    g2.setFont(new Font("SansSerif", Font.BOLD, 42));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String plus = "+";
+                    g2.drawString(plus, (getWidth() - fm.stringWidth(plus)) / 2, getHeight() / 2 + 16);
+                }
+                g2.dispose();
+            }
+        };
+        imgPanel.setOpaque(false);
+        imgPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        imgPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, IMG_H));
+        imgPanel.setMinimumSize(new Dimension(100, IMG_H));
+        imgPanel.setPreferredSize(new Dimension(400, IMG_H));
+        card.add(imgPanel);
+        card.add(Box.createVerticalStrut(10));
+
+        // ── Descripción ──
+        String descText = (mem.descripcion != null && !mem.descripcion.isEmpty()) ? mem.descripcion : "";
+        if (!descText.isEmpty()) {
+            JTextArea lblDesc = new JTextArea(descText);
+            lblDesc.setForeground(TEXT_DIM);
+            lblDesc.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            lblDesc.setOpaque(false);
+            lblDesc.setEditable(false);
+            lblDesc.setLineWrap(true);
+            lblDesc.setWrapStyleWord(true);
+            lblDesc.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+            lblDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
+            card.add(lblDesc);
+        }
+        card.setMaximumSize(new Dimension(440, Integer.MAX_VALUE));
+        card.setMinimumSize(new Dimension(300, 200));
+        card.setPreferredSize(new Dimension(440, 500));
         return card;
     }
 
-    private void refreshGrid(boolean publicas) {
-        gridPanel.removeAll();
-        // TODO: CARGAR MEMORIAS DE LA BDD FILTRADAS POR publicas/privadas
-        gridPanel.revalidate();
-        gridPanel.repaint();
-    }
-
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new PantallaPerfil(null));
+        SwingUtilities.invokeLater(() -> new PantallaPerfil(null, null));
     }
 }
