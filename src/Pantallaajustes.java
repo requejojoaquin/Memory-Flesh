@@ -3,6 +3,8 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.*;
  
+import red.UsuarioDAO;
+
 public class Pantallaajustes extends JFrame {
  
     private static final Color BG_COLOR      = new Color(0x1E1B4B);
@@ -15,9 +17,9 @@ public class Pantallaajustes extends JFrame {
     private static final Color BTN_ROJO_DARK = new Color(0x2D1314);
     private static final Color CARD_COLOR    = new Color(0x27226E);
  
-    // Datos reales del usuario logueado
     private final UsuarioDAO.Usuario usuario;
  
+    // ─── Pantallaajustes ─────────────────
     public Pantallaajustes(JFrame parent, UsuarioDAO.Usuario usuario) {
         if (usuario == null) {
             JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
@@ -43,8 +45,7 @@ public class Pantallaajustes extends JFrame {
         setVisible(true);
     }
  
-    // ─── HEADER ──────────────────────────────────────────────────────────────
- 
+    // ─── buildHeader ─────────────────
     private JPanel buildHeader(JFrame parent) {
         JPanel header = new JPanel(null);
         header.setBackground(BG_COLOR);
@@ -77,8 +78,7 @@ public class Pantallaajustes extends JFrame {
         return header;
     }
  
-    // ─── CONTENIDO ───────────────────────────────────────────────────────────
- 
+    // ─── buildContent ─────────────────
     private JPanel buildContent() {
         JPanel wrapper = new JPanel(new GridBagLayout());
         wrapper.setBackground(BG_COLOR);
@@ -89,7 +89,6 @@ public class Pantallaajustes extends JFrame {
         content.setPreferredSize(new Dimension(860, 800));
         content.setBorder(BorderFactory.createEmptyBorder(48, 0, 48, 0));
  
-        // ── Título principal ──
         JLabel lblTitulo = new JLabel("Ajustes y seguridad");
         lblTitulo.setForeground(TEXT_MAIN);
         lblTitulo.setFont(new Font("SansSerif", Font.BOLD, 42));
@@ -97,7 +96,6 @@ public class Pantallaajustes extends JFrame {
         content.add(lblTitulo);
         content.add(Box.createVerticalStrut(10));
  
-        // ── Subtítulo ──
         JLabel lblSub = new JLabel("Gestionar datos de cuenta.");
         lblSub.setForeground(TEXT_MAIN);
         lblSub.setFont(new Font("SansSerif", Font.BOLD, 18));
@@ -105,7 +103,6 @@ public class Pantallaajustes extends JFrame {
         content.add(lblSub);
         content.add(Box.createVerticalStrut(20));
  
-        // ── Datos usuario — cargados desde el objeto Usuario ──
         JPanel datosPanel = new JPanel(new GridLayout(2, 2, 60, 6));
         datosPanel.setBackground(BG_COLOR);
         datosPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 70));
@@ -123,7 +120,6 @@ public class Pantallaajustes extends JFrame {
         content.add(datosPanel);
         content.add(Box.createVerticalStrut(28));
  
-        // ── Sección: Cambiar contraseña ──
         content.add(buildDivider());
         content.add(Box.createVerticalStrut(24));
  
@@ -143,7 +139,6 @@ public class Pantallaajustes extends JFrame {
         content.add(btnCambiar);
         content.add(Box.createVerticalStrut(28));
  
-        // ── Sección: Cerrar sesión ──
         content.add(buildDivider());
         content.add(Box.createVerticalStrut(24));
  
@@ -163,7 +158,6 @@ public class Pantallaajustes extends JFrame {
         content.add(btnCerrar);
         content.add(Box.createVerticalStrut(28));
  
-        // ── Sección: Eliminar cuenta ──
         content.add(buildDivider());
         content.add(Box.createVerticalStrut(24));
  
@@ -186,8 +180,7 @@ public class Pantallaajustes extends JFrame {
         return wrapper;
     }
  
-    // ─── HELPERS ─────────────────────────────────────────────────────────────
- 
+    // ─── buildDivider ─────────────────
     private JPanel buildDivider() {
         JPanel d = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
@@ -201,6 +194,7 @@ public class Pantallaajustes extends JFrame {
         return d;
     }
  
+    // ─── smallLabel ─────────────────
     private JLabel smallLabel(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_DIM);
@@ -208,6 +202,7 @@ public class Pantallaajustes extends JFrame {
         return l;
     }
  
+    // ─── valueLabel ─────────────────
     private JLabel valueLabel(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_MAIN);
@@ -215,6 +210,7 @@ public class Pantallaajustes extends JFrame {
         return l;
     }
  
+    // ─── sectionTitle ─────────────────
     private JLabel sectionTitle(String text) {
         JLabel l = new JLabel(text);
         l.setForeground(TEXT_MAIN);
@@ -223,6 +219,7 @@ public class Pantallaajustes extends JFrame {
         return l;
     }
  
+    // ─── descLabel ─────────────────
     private JLabel descLabel(String text) {
         JLabel l = new JLabel("<html><body style='width:700px'>" + text + "</body></html>");
         l.setForeground(TEXT_GRAY);
@@ -231,6 +228,7 @@ public class Pantallaajustes extends JFrame {
         return l;
     }
  
+    // ─── redButton ─────────────────
     private JButton redButton(String text) {
         JButton btn = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
@@ -255,6 +253,7 @@ public class Pantallaajustes extends JFrame {
         return btn;
     }
  
+    // ─── main ─────────────────
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new Pantallaajustes(null, null));
     }

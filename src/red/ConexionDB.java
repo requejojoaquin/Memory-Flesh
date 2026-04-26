@@ -1,3 +1,5 @@
+package red;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -7,19 +9,16 @@ public class ConexionDB {
     private static final String PUERTO   = "3306";
     private static final String BASE     = "memoryflesh";
     private static final String USUARIO  = "root";
-    private static final String PASSWORD = "joaco2122007."; // <-- CAMBIÁ ESTO
+    private static final String PASSWORD = "joaco2122007.";
 
     private static final String URL =
         "jdbc:mysql://" + HOST + ":" + PUERTO + "/" + BASE
         + "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 
-    // Constructor privado para evitar instancias
+    // ─── ConexionDB ─────────────────
     private ConexionDB() {}
 
-    /**
-     * Devuelve una NUEVA conexión cada vez (mejor para transacciones)
-     * IMPORTANTE: Cerrar la conexión con try-with-resources
-     */
+    // ─── getConexion ─────────────────
     public static Connection getConexion() throws SQLException {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -33,7 +32,7 @@ public class ConexionDB {
         }
     }
 
-    // Método de prueba
+    // ─── main ─────────────────
     public static void main(String[] args) {
         try (Connection con = ConexionDB.getConexion()) {
             System.out.println("¡Conexión exitosa! Auto-commit: " + con.getAutoCommit());

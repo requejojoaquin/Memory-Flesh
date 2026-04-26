@@ -6,6 +6,9 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
 
+import red.Cliente;
+import red.UsuarioDAO;
+
 public class PantallaPerfil extends JFrame {
 
     private static final Color BG_COLOR      = new Color(0x1E1B4B);
@@ -20,30 +23,36 @@ public class PantallaPerfil extends JFrame {
     private static final Color MENU_ELIMINAR = new Color(0x2D1314);
     private static final Color MENU_BTN      = new Color(0x6157E8);
 
-    // Datos reales del usuario logueado
     private final UsuarioDAO.Usuario usuario;
     private int cantPublicaciones = 0;
     private boolean viendoPublicas = true;
+    private final boolean esPerfilPropio;
+    private UsuarioDAO.Usuario usuarioLogueado;
 
     private JPanel menuDesplegable;
     private JPanel gridPanel;
     private JLabel lblCantidad;
+    private JFrame parent;
 
-    // ── Modo eliminación ──
     private boolean modoEliminar = false;
     private final java.util.Set<Integer> seleccionadas = new java.util.HashSet<>();
 
-    public PantallaPerfil(JFrame parent, UsuarioDAO.Usuario usuario) {
-        if (usuario == null) {
+    // ─── PantallaPerfil ─────────────────
+    public PantallaPerfil(JFrame parent, UsuarioDAO.Usuario usuarioVisualizado, UsuarioDAO.Usuario usuarioLogueado) {
+        if (usuarioVisualizado == null) {
             JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
             dispose();
             new LoginPanel();
             this.usuario = null;
+            this.esPerfilPropio = false;
             return;
         }
-        this.usuario = usuario;
+        this.usuario = usuarioVisualizado;
+        this.usuarioLogueado = usuarioLogueado;
+        this.esPerfilPropio = (usuarioLogueado != null && usuarioLogueado.idUsuario == usuarioVisualizado.idUsuario);
+        this.parent = parent;
         
-        setTitle("Perfil - Memory Flesh");
+        setTitle("Perfil de " + usuario.nombre + " - Memory Flesh");
         setSize(1920, 1080);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -57,12 +66,15 @@ public class PantallaPerfil extends JFrame {
         setContentPane(root);
         setVisible(true);
 
-        // Cargar memorias iniciales (públicas)
         refreshGrid(true);
     }
 
-    // ─── TOP ─────────────────────────────────────────────────────────────────
+    // ─── PantallaPerfil ─────────────────
+    public PantallaPerfil(JFrame parent, UsuarioDAO.Usuario usuario) {
+        this(parent, usuario, usuario);
+    }
 
+    // ─── buildTop ─────────────────
     private JPanel buildTop(JFrame parent) {
         JLayeredPane layered = new JLayeredPane();
         layered.setPreferredSize(new Dimension(1920, 420));
@@ -73,7 +85,6 @@ public class PantallaPerfil extends JFrame {
         top.setBackground(BG_COLOR);
         top.setBounds(0, 0, 1920, 420);
 
-        // ── Botón Atrás ──
         JLabel btnAtras = new JLabel("✕   Atrás");
         btnAtras.setForeground(TEXT_MAIN);
         btnAtras.setFont(new Font("SansSerif", Font.BOLD, 20));
@@ -82,6 +93,9 @@ public class PantallaPerfil extends JFrame {
         btnAtras.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
                 dispose();
+                if (parent instanceof PantallaPrincipal) {
+                    ((PantallaPrincipal) parent).actualizarFeed();
+                }
                 if (parent != null) parent.setVisible(true);
             }
             @Override public void mouseEntered(MouseEvent e) { btnAtras.setForeground(ACCENT_COLOR); }
@@ -89,7 +103,6 @@ public class PantallaPerfil extends JFrame {
         });
         top.add(btnAtras);
 
-        // ── Avatar círculo ──
         int avatarSize = 160;
         int avatarX = (1920 - avatarSize) / 2;
         JPanel avatar = new JPanel() {
@@ -99,11 +112,9 @@ public class PantallaPerfil extends JFrame {
                 g2.setColor(ACCENT_COLOR);
                 g2.setStroke(new BasicStroke(6f));
                 g2.drawOval(4, 4, getWidth() - 8, getHeight() - 8);
-                // cabeza
                 g2.setStroke(new BasicStroke(5f));
                 int cx = getWidth() / 2;
                 g2.drawOval(cx - 28, 26, 56, 56);
-                // cuerpo
                 g2.drawRoundRect(cx - 40, 94, 80, 46, 36, 36);
                 g2.dispose();
             }
@@ -112,14 +123,12 @@ public class PantallaPerfil extends JFrame {
         avatar.setOpaque(false);
         top.add(avatar);
 
-        // ── Nombre ──
         JLabel lblNombre = new JLabel(usuario.nombre, SwingConstants.CENTER);
         lblNombre.setForeground(TEXT_MAIN);
         lblNombre.setFont(new Font("SansSerif", Font.BOLD, 30));
         lblNombre.setBounds(760, 222, 400, 40);
         top.add(lblNombre);
 
-        // ── Cantidad publicaciones ──
         lblCantidad = new JLabel("0", SwingConstants.CENTER);
         lblCantidad.setForeground(TEXT_MAIN);
         lblCantidad.setFont(new Font("SansSerif", Font.BOLD, 24));
@@ -132,7 +141,6 @@ public class PantallaPerfil extends JFrame {
         lblPubs.setBounds(760, 298, 400, 24);
         top.add(lblPubs);
 
-        // ── Botones ojo ──
         int eyeCX = 1920 / 2;
         int eyeY  = 338;
 
@@ -157,19 +165,21 @@ public class PantallaPerfil extends JFrame {
             }
         });
 
-        btnPrivadas.addMouseListener(new MouseAdapter() {
-            @Override public void mouseClicked(MouseEvent e) {
-                viendoPublicas = false;
-                updateEyeStyle(btnPrivadas, true);
-                updateEyeStyle(btnPublicas, false);
-                refreshGrid(false);
-            }
-        });
-
+        if (esPerfilPropio) {
+            btnPrivadas.addMouseListener(new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) {
+                    viendoPublicas = false;
+                    updateEyeStyle(btnPrivadas, true);
+                    updateEyeStyle(btnPublicas, false);
+                    refreshGrid(false);
+                }
+            });
+            top.add(btnPrivadas);
+        } else {
+            btnPublicas.setBounds(eyeCX - 36, eyeY, 72, 54);
+        }
         top.add(btnPublicas);
-        top.add(btnPrivadas);
 
-        // ── Línea divisoria ──
         JPanel divider = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 g.setColor(DIVIDER_COLOR);
@@ -179,7 +189,6 @@ public class PantallaPerfil extends JFrame {
         divider.setBounds(0, 408, 1920, 5);
         top.add(divider);
 
-        // ── 3 puntos ──
         JLabel tresPuntos = new JLabel("• • •");
         tresPuntos.setForeground(TEXT_MAIN);
         tresPuntos.setFont(new Font("SansSerif", Font.BOLD, 22));
@@ -193,7 +202,6 @@ public class PantallaPerfil extends JFrame {
         });
         top.add(tresPuntos);
 
-        // ── Menú desplegable ──
         menuDesplegable = buildMenuDesplegable();
         menuDesplegable.setBounds(1680, 68, 220, 120);
         menuDesplegable.setVisible(false);
@@ -207,6 +215,7 @@ public class PantallaPerfil extends JFrame {
         return wrapper;
     }
 
+    // ─── eyeButton ─────────────────
     private JPanel eyeButton(boolean tachado) {
         JPanel btn = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
@@ -241,11 +250,13 @@ public class PantallaPerfil extends JFrame {
         return btn;
     }
 
+    // ─── updateEyeStyle ─────────────────
     private void updateEyeStyle(JPanel btn, boolean selected) {
         btn.putClientProperty("selected", selected);
         btn.repaint();
     }
 
+    // ─── buildMenuDesplegable ─────────────────
     private JPanel buildMenuDesplegable() {
         JPanel menu = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
@@ -266,13 +277,11 @@ public class PantallaPerfil extends JFrame {
         btnEliminar.addActionListener(e -> {
             menuDesplegable.setVisible(false);
             if (!modoEliminar) {
-                // Entrar en modo selección
                 modoEliminar = true;
                 seleccionadas.clear();
                 btnEliminar.setText("Confirmar eliminación");
                 refreshGrid(viendoPublicas);
             } else {
-                // Confirmar eliminación de las seleccionadas
                 if (seleccionadas.isEmpty()) {
                     modoEliminar = false;
                     btnEliminar.setText("Eliminar publicación");
@@ -286,7 +295,10 @@ public class PantallaPerfil extends JFrame {
                 );
                 if (confirm == JOptionPane.YES_OPTION) {
                     for (int idMem : seleccionadas) {
-                        UsuarioDAO.darDeBajaMemoria(idMem, usuario.idUsuario);
+                        Cliente.darDeBajaMemoria(idMem, usuario.idUsuario);
+                    }
+                    if (parent instanceof PantallaPrincipal) {
+                        ((PantallaPrincipal) parent).agregarNotificacion("Memoria eliminada con exito");
                     }
                     seleccionadas.clear();
                     modoEliminar = false;
@@ -307,6 +319,7 @@ public class PantallaPerfil extends JFrame {
         return menu;
     }
 
+    // ─── menuButton ─────────────────
     private JButton menuButton(String text, Color bg) {
         JButton btn = new JButton(text) {
             @Override protected void paintComponent(Graphics g) {
@@ -331,6 +344,7 @@ public class PantallaPerfil extends JFrame {
         return btn;
     }
 
+    // ─── buildGrid ─────────────────
     private JPanel buildGrid() {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setBackground(BG_COLOR);
@@ -350,9 +364,11 @@ public class PantallaPerfil extends JFrame {
         return wrapper;
     }
 
+    // ─── refreshGrid ─────────────────
     private void refreshGrid(boolean soloPublicas) {
         gridPanel.removeAll();
-        java.util.List<UsuarioDAO.Memoria> memorias = UsuarioDAO.obtenerMemoriasDeUsuario(usuario.idUsuario, soloPublicas);
+        boolean cargarSoloPub = !esPerfilPropio || soloPublicas;
+        java.util.List<UsuarioDAO.Memoria> memorias = Cliente.obtenerMemoriasDeUsuario(usuario.idUsuario, cargarSoloPub);
         
         cantPublicaciones = memorias.size();
         if (lblCantidad != null) lblCantidad.setText(String.valueOf(cantPublicaciones));
@@ -365,17 +381,16 @@ public class PantallaPerfil extends JFrame {
         gridPanel.repaint();
     }
 
+    // ─── buildMemoryCardSmall ─────────────────
     private JPanel buildMemoryCardSmall(UsuarioDAO.Memoria mem) {
         final boolean[] seleccionada = { seleccionadas.contains(mem.idMemoria) };
 
-        // Card con fondo redondeado — mismo estilo que el feed principal
         JPanel card = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(CARD_COLOR);
                 g2.fill(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 16, 16));
-                // Borde rojo si está seleccionada para eliminar
                 g2.setColor(seleccionada[0] ? new Color(0xFF4444) : CARD_BORDER);
                 g2.setStroke(new BasicStroke(seleccionada[0] ? 3f : 2f));
                 g2.draw(new RoundRectangle2D.Double(1, 1, getWidth()-2, getHeight()-2, 16, 16));
@@ -386,7 +401,6 @@ public class PantallaPerfil extends JFrame {
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(BorderFactory.createEmptyBorder(14, 14, 14, 14));
 
-        // ── Fila superior: autor + checkbox (solo en modo eliminar) ──
         JPanel filaTop = new JPanel(new BorderLayout());
         filaTop.setOpaque(false);
         filaTop.setMaximumSize(new Dimension(Integer.MAX_VALUE, 20));
@@ -397,7 +411,6 @@ public class PantallaPerfil extends JFrame {
         filaTop.add(lblAutor, BorderLayout.WEST);
 
         if (modoEliminar) {
-            // Checkbox dibujado a mano: cuadradito con o sin tilde
             JPanel checkbox = new JPanel() {
                 @Override protected void paintComponent(Graphics g) {
                     Graphics2D g2 = (Graphics2D) g.create();
@@ -405,14 +418,11 @@ public class PantallaPerfil extends JFrame {
                     int s = 18;
                     int x = (getWidth() - s) / 2;
                     int y = (getHeight() - s) / 2;
-                    // fondo
                     g2.setColor(seleccionada[0] ? new Color(0xFF4444) : new Color(0x3D3580));
                     g2.fillRoundRect(x, y, s, s, 5, 5);
-                    // borde
                     g2.setColor(seleccionada[0] ? new Color(0xFF8888) : ACCENT_COLOR);
                     g2.setStroke(new BasicStroke(1.5f));
                     g2.drawRoundRect(x, y, s, s, 5, 5);
-                    // tilde si está seleccionada
                     if (seleccionada[0]) {
                         g2.setColor(Color.WHITE);
                         g2.setStroke(new BasicStroke(2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
@@ -427,7 +437,6 @@ public class PantallaPerfil extends JFrame {
             checkbox.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             filaTop.add(checkbox, BorderLayout.EAST);
 
-            // Click en card completa o en checkbox
             MouseAdapter toggleSelect = new MouseAdapter() {
                 @Override public void mouseClicked(MouseEvent e) {
                     seleccionada[0] = !seleccionada[0];
@@ -445,7 +454,6 @@ public class PantallaPerfil extends JFrame {
         card.add(filaTop);
         card.add(Box.createVerticalStrut(4));
 
-        // ── Título ──
         JLabel lblTitulo = new JLabel(mem.titulo);
         lblTitulo.setAlignmentX(Component.LEFT_ALIGNMENT);
         lblTitulo.setForeground(TEXT_MAIN);
@@ -453,12 +461,14 @@ public class PantallaPerfil extends JFrame {
         card.add(lblTitulo);
         card.add(Box.createVerticalStrut(10));
 
-        // ── Imagen ──
         BufferedImage imgCargada = null;
         if (mem.contenido != null && !mem.contenido.isEmpty()) {
             try {
-                File f = new File("uploads", mem.contenido);
-                if (f.exists()) imgCargada = ImageIO.read(f);
+                File f = new File("uploads_cache", mem.contenido);
+                if (!f.exists()) {
+                    f = Cliente.descargarImagen(mem.contenido);
+                }
+                if (f != null && f.exists()) imgCargada = ImageIO.read(f);
             } catch (Exception ignored) {}
         }
         final BufferedImage imgFinal = imgCargada;
@@ -501,7 +511,6 @@ public class PantallaPerfil extends JFrame {
         card.add(imgPanel);
         card.add(Box.createVerticalStrut(10));
 
-        // ── Descripción ──
         String descText = (mem.descripcion != null && !mem.descripcion.isEmpty()) ? mem.descripcion : "";
         if (!descText.isEmpty()) {
             JTextArea lblDesc = new JTextArea(descText);
@@ -521,6 +530,7 @@ public class PantallaPerfil extends JFrame {
         return card;
     }
 
+    // ─── main ─────────────────
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new PantallaPerfil(null, null));
     }

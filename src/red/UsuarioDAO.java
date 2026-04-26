@@ -1,14 +1,16 @@
+package red;
+
 import java.sql.*;
 
 public class UsuarioDAO {
 
-    // Clase interna para representar un Usuario
-    public static class Usuario {
+    public static class Usuario implements java.io.Serializable {
         public int    idUsuario;
         public String nombre;
         public String mail;
         public int    idRol;
 
+        // ─── Usuario ─────────────────
         public Usuario(int idUsuario, String nombre, String mail, int idRol) {
             this.idUsuario = idUsuario;
             this.nombre    = nombre;
@@ -17,16 +19,17 @@ public class UsuarioDAO {
         }
     }
 
-    // Clase para resultados de operaciones (registro, cambio contraseña, etc.)
-    public static class Resultado {
+    public static class Resultado implements java.io.Serializable {
         public final boolean ok;
         public final String  mensaje;
-        public final int     id; // Para CrearCuenta y CrearMemoria
+        public final int     id;
 
+        // ─── Resultado ─────────────────
         public Resultado(boolean ok, String mensaje) {
             this(ok, mensaje, 0);
         }
 
+        // ─── Resultado ─────────────────
         public Resultado(boolean ok, String mensaje, int id) {
             this.ok      = ok;
             this.mensaje = mensaje;
@@ -34,9 +37,7 @@ public class UsuarioDAO {
         }
     }
 
-    // ── INICIAR SESION ────────────────────────────────────────────────────
-    // SP: sp_IniciarSesion(mail, contrasena)
-    // Retorna: idUsuario, nombre, mail, idRol, mensaje
+    // ─── login ─────────────────
     public static Usuario login(String mail, String contrasena) {
         String sql = "{CALL sp_IniciarSesion(?, ?)}";
 
@@ -58,16 +59,39 @@ public class UsuarioDAO {
             }
 
         } catch (SQLException e) {
-            // El SP lanza SIGNAL si las credenciales son incorrectas
             System.err.println("[UsuarioDAO.login] " + e.getMessage());
         }
 
         return null;
     }
 
-    // ── CREAR CUENTA ──────────────────────────────────────────────────────
-    // SP: sp_CrearCuenta(nombre, mail, contrasena)
-    // Retorna: mensaje, idUsuario
+    // ─── buscarUsuariosByName ─────────────────
+    public static java.util.List<Usuario> buscarUsuariosByName(String query) {
+        java.util.List<Usuario> lista = new java.util.ArrayList<>();
+        String sql = "SELECT idUsuario, nombre, mail, idRol FROM usuario WHERE LOWER(nombre) LIKE LOWER(?)"; 
+
+        try (Connection con = ConexionDB.getConexion();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, "%" + query.trim() + "%");
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    lista.add(new Usuario(
+                        rs.getInt("idUsuario"),
+                        rs.getString("nombre"),
+                        rs.getString("mail"),
+                        rs.getInt("idRol")
+                    ));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("[UsuarioDAO.buscarUsuariosByName] " + e.getMessage());
+        }
+        return lista;
+    }
+
+    // ─── registrar ─────────────────
     public static Resultado registrar(String nombre, String mail, String contrasena) {
         String sql = "{CALL sp_CrearCuenta(?, ?, ?)}";
 
@@ -92,11 +116,8 @@ public class UsuarioDAO {
             }
 
         } catch (SQLException e) {
-            // El SP lanza SIGNAL si el usuario/mail ya existe
-            // El mensaje del error está en e.getMessage()
             String mensajeError = e.getMessage();
             
-            // Extrae solo el mensaje después de "MESSAGE_TEXT = "
             if (mensajeError.contains("El nombre de usuario ya existe")) {
                 return new Resultado(false, "El nombre de usuario ya existe");
             } else if (mensajeError.contains("El correo")) {
@@ -109,9 +130,7 @@ public class UsuarioDAO {
         return new Resultado(false, "Error desconocido");
     }
 
-    // ── CAMBIAR CONTRASEÑA ────────────────────────────────────────────────
-    // SP: sp_CambiarContrasena(idUsuario, contrasenaActual, contrasenaNueva)
-    // Retorna: mensaje
+    // ─── cambiarContrasena ─────────────────
     public static Resultado cambiarContrasena(int idUsuario, String actual, String nueva) {
         String sql = "{CALL sp_CambiarContrasena(?, ?, ?)}";
 
@@ -125,6 +144,9 @@ public class UsuarioDAO {
             try (ResultSet rs = cs.executeQuery()) {
                 if (rs.next()) {
                     String mensaje = rs.getString("mensaje");
+                    if (mensaje.toLowerCase().contains("incorrecta") || mensaje.toLowerCase().contains("error")) {
+                        return new Resultado(false, mensaje);
+                    }
                     return new Resultado(true, mensaje);
                 }
             }
@@ -134,7 +156,7 @@ public class UsuarioDAO {
             
             if (mensajeError.contains("Usuario no encontrado")) {
                 return new Resultado(false, "Usuario no encontrado");
-            } else if (mensajeError.contains("Contraseña actual incorrecta")) {
+            } else if (mensajeError.contains("Contraseña actual incorrecta") || mensajeError.contains("password") || mensajeError.contains("incorrecta")) {
                 return new Resultado(false, "Contraseña actual incorrecta");
             } else {
                 return new Resultado(false, "Error al cambiar la contraseña");
@@ -144,9 +166,7 @@ public class UsuarioDAO {
         return new Resultado(false, "Error desconocido");
     }
 
-    // ── ELIMINAR CUENTA ───────────────────────────────────────────────────
-    // SP: sp_EliminarCuenta(idUsuario, contrasena)
-    // Retorna: mensaje
+    // ─── eliminarCuenta ─────────────────
     public static Resultado eliminarCuenta(int idUsuario, String contrasena) {
         String sql = "{CALL sp_EliminarCuenta(?, ?)}";
 
@@ -159,6 +179,9 @@ public class UsuarioDAO {
             try (ResultSet rs = cs.executeQuery()) {
                 if (rs.next()) {
                     String mensaje = rs.getString("mensaje");
+                    if (mensaje.toLowerCase().contains("incorrecta") || mensaje.toLowerCase().contains("error")) {
+                        return new Resultado(false, mensaje);
+                    }
                     return new Resultado(true, mensaje);
                 }
             }
@@ -168,7 +191,7 @@ public class UsuarioDAO {
             
             if (mensajeError.contains("Usuario no encontrado")) {
                 return new Resultado(false, "Usuario no encontrado");
-            } else if (mensajeError.contains("Contraseña incorrecta")) {
+            } else if (mensajeError.contains("Contraseña incorrecta") || mensajeError.contains("password") || mensajeError.contains("credenciales") || mensajeError.contains("Actual incorrecta")) {
                 return new Resultado(false, "Contraseña incorrecta");
             } else {
                 return new Resultado(false, "Error al eliminar la cuenta");
@@ -178,20 +201,16 @@ public class UsuarioDAO {
         return new Resultado(false, "Error desconocido");
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  MEMORIAS
-    // ════════════════════════════════════════════════════════════════════════
-
-    // Clase interna para representar una Memoria
-    public static class Memoria {
+    public static class Memoria implements java.io.Serializable {
         public int    idMemoria;
         public String titulo;
-        public String contenido;   // path de imagen (puede estar vacío)
+        public String contenido;
         public String descripcion;
         public int    idUsuario;
         public String nombreUsuario;
-        public int    idEstado;    // 1=Publico, 2=Privado, 3=Eliminado
+        public int    idEstado;
 
+        // ─── Memoria ─────────────────
         public Memoria(int idMemoria, String titulo, String contenido,
                        String descripcion, int idUsuario, String nombreUsuario, int idEstado) {
             this.idMemoria     = idMemoria;
@@ -204,9 +223,7 @@ public class UsuarioDAO {
         }
     }
 
-    // ── CREAR MEMORIA ─────────────────────────────────────────────────────
-    // SP: sp_CrearMemoria(titulo, contenido, descripcion, idUsuario, esPublica)
-    // Retorna: mensaje, idMemoria
+    // ─── crearMemoria ─────────────────
     public static Resultado crearMemoria(String titulo, String contenido,
                                          String descripcion, int idUsuario, boolean esPublica) {
         String sql = "{CALL sp_CrearMemoria(?, ?, ?, ?, ?)}";
@@ -215,7 +232,7 @@ public class UsuarioDAO {
              CallableStatement cs = con.prepareCall(sql)) {
 
             cs.setString(1, titulo);
-            cs.setString(2, contenido);   // path de imagen o ""
+            cs.setString(2, contenido);
             cs.setString(3, descripcion);
             cs.setInt(4, idUsuario);
             cs.setBoolean(5, esPublica);
@@ -242,9 +259,7 @@ public class UsuarioDAO {
         return new Resultado(false, "Error desconocido");
     }
 
-    // ── OBTENER MEMORIAS PÚBLICAS (feed) ──────────────────────────────────
-    // Query directa: todas las memorias con estado Publico (idEstado=1),
-    // ordenadas por fecha descendente. Incluye nombre del autor.
+    // ─── obtenerMemoriasPublicas ─────────────────
     public static java.util.List<Memoria> obtenerMemoriasPublicas() {
         java.util.List<Memoria> lista = new java.util.ArrayList<>();
         String sql =
@@ -278,9 +293,7 @@ public class UsuarioDAO {
         return lista;
     }
 
-    // ── OBTENER MEMORIAS DE UN USUARIO (perfil) ───────────────────────────
-    // Query directa: memorias de un usuario filtradas por estado
-    // (1=Publico, 2=Privado). Excluye eliminadas (3).
+    // ─── obtenerMemoriasDeUsuario ─────────────────
     public static java.util.List<Memoria> obtenerMemoriasDeUsuario(int idUsuario, boolean soloPublicas) {
         java.util.List<Memoria> lista = new java.util.ArrayList<>();
         String sql =
@@ -318,10 +331,7 @@ public class UsuarioDAO {
         return lista;
     }
 
-    // ── DAR DE BAJA MEMORIA ───────────────────────────────────────────────
-    // SP: sp_DarDeBajaMemoria(idMemoria, idUsuario)
-    // Cambia estado a Eliminado (3). El usuario solo puede bajar las suyas;
-    // el admin puede bajar cualquiera.
+    // ─── darDeBajaMemoria ─────────────────
     public static Resultado darDeBajaMemoria(int idMemoria, int idUsuario) {
         String sql = "{CALL sp_DarDeBajaMemoria(?, ?)}";
 

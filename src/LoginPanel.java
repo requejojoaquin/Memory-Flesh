@@ -4,6 +4,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 
+import red.Cliente;
+import red.UsuarioDAO;
+
 public class LoginPanel extends JFrame {
 
     private static final Color BG_COLOR       = new Color(0x1E1B4B);
@@ -19,6 +22,7 @@ public class LoginPanel extends JFrame {
     private JPasswordField passwordField;
     private JLabel emailErrorLabel;
 
+    // ─── LoginPanel ─────────────────
     public LoginPanel() {
         setTitle("Login");
         setSize(1920, 1080);
@@ -42,6 +46,7 @@ public class LoginPanel extends JFrame {
         setVisible(true);
     }
 
+    // ─── createCard ─────────────────
     private JPanel createCard() {
         JPanel card = new JPanel() {
             @Override
@@ -89,10 +94,10 @@ public class LoginPanel extends JFrame {
         registerLink.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, TITLE_FG));
         registerLink.addMouseListener(new MouseAdapter() {
             @Override
-        public void mouseClicked(MouseEvent e) {
-            new RegistrarPanel();
-        }
-});
+            public void mouseClicked(MouseEvent e) {
+                new RegistrarPanel();
+            }
+        });
 
         card.add(title1);
         card.add(Box.createVerticalStrut(4));
@@ -113,6 +118,7 @@ public class LoginPanel extends JFrame {
         return card;
     }
 
+    // ─── createTextField ─────────────────
     private JTextField createTextField(String placeholder) {
         JTextField field = new JTextField() {
             @Override
@@ -129,6 +135,7 @@ public class LoginPanel extends JFrame {
         return field;
     }
 
+    // ─── createPasswordField ─────────────────
     private JPasswordField createPasswordField(String placeholder) {
         JPasswordField field = new JPasswordField() {
             @Override
@@ -145,6 +152,7 @@ public class LoginPanel extends JFrame {
         return field;
     }
 
+    // ─── styleField ─────────────────
     private void styleField(JTextField field, String placeholder) {
         field.setOpaque(false);
         field.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
@@ -183,6 +191,7 @@ public class LoginPanel extends JFrame {
         }
     }
 
+    // ─── createButton ─────────────────
     private JButton createButton(String text) {
         JButton button = new JButton(text) {
             @Override
@@ -205,11 +214,12 @@ public class LoginPanel extends JFrame {
         button.setForeground(Color.WHITE);
         button.setFont(new Font("SansSerif", Font.BOLD, 15));
         button.setPreferredSize(new Dimension(220, 44));
-button.setMaximumSize(new Dimension(220, 44));
+        button.setMaximumSize(new Dimension(220, 44));
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         return button;
     }
 
+    // ─── styledLabel ─────────────────
     private JLabel styledLabel(String text, float size, int style) {
         JLabel label = new JLabel(text);
         label.setForeground(TITLE_FG);
@@ -217,6 +227,7 @@ button.setMaximumSize(new Dimension(220, 44));
         return label;
     }
 
+    // ─── handleLogin ─────────────────
     private void handleLogin() {
         String email = emailField.getText().trim();
         String pass = new String(passwordField.getPassword());
@@ -238,21 +249,14 @@ button.setMaximumSize(new Dimension(220, 44));
         }
 
         if (valid) {
-            // Llamar al DAO para verificar credenciales
-            UsuarioDAO.Usuario usuario = UsuarioDAO.login(email, pass);
+            UsuarioDAO.Usuario usuario = Cliente.login(email, pass);
             
             if (usuario != null) {
-                // Login exitoso
                 JOptionPane.showMessageDialog(this, "¡Bienvenido " + usuario.nombre + "!");
-                
-                // Cerrar LoginPanel
                 dispose();
-                
-                // Abrir PantallaPrincipal pasando el usuario
                 new PantallaPrincipal(usuario);
                 
             } else {
-                // Login fallido (credenciales incorrectas)
                 emailErrorLabel.setText("Correo o contraseña incorrectos");
             }
         }

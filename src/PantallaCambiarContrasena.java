@@ -3,6 +3,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 
+import red.Cliente;
+import red.UsuarioDAO;
+
 public class PantallaCambiarContrasena extends JFrame {
 
     private static final Color BG_COLOR      = new Color(0x1E1B4B);
@@ -23,6 +26,7 @@ public class PantallaCambiarContrasena extends JFrame {
 
     private final UsuarioDAO.Usuario usuario;
 
+    // ─── PantallaCambiarContrasena ─────────────────
     public PantallaCambiarContrasena(JFrame parent, UsuarioDAO.Usuario usuario) {
         if (usuario == null) {
             JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
@@ -49,8 +53,7 @@ public class PantallaCambiarContrasena extends JFrame {
         setVisible(true);
     }
 
-    // ─── HEADER ─────────────────────────────────────────
-
+    // ─── buildHeader ─────────────────
     private JPanel buildHeader(JFrame parent) {
         JPanel header = new JPanel(null);
         header.setBackground(BG_COLOR);
@@ -81,8 +84,7 @@ public class PantallaCambiarContrasena extends JFrame {
         return header;
     }
 
-    // ─── CONTENIDO ──────────────────────────────────────
-
+    // ─── buildContent ─────────────────
     private JPanel buildContent() {
         JPanel wrapper = new JPanel(new GridBagLayout());
         wrapper.setBackground(BG_COLOR);
@@ -152,10 +154,8 @@ public class PantallaCambiarContrasena extends JFrame {
         return wrapper;
     }
 
-    // ─── VALIDACIONES ───────────────────────────────────
-
+    // ─── validar ─────────────────
     private void validar() {
-
         boolean ok = true;
 
         String actual = new String(actualField.getPassword());
@@ -164,7 +164,6 @@ public class PantallaCambiarContrasena extends JFrame {
 
         limpiarErrores();
 
-        // 1. CAMPOS VACÍOS
         if (actual.isEmpty() || actual.equals("Contraseña*")) {
             errorActual.setText("Este campo no puede estar vacío");
             ok = false;
@@ -173,6 +172,9 @@ public class PantallaCambiarContrasena extends JFrame {
         if (nueva.isEmpty() || nueva.equals("Nueva contraseña*")) {
             errorNueva.setText("Este campo no puede estar vacío");
             ok = false;
+        } else if (nueva.length() < 8) {
+            errorNueva.setText("La nueva contraseña debe tener al menos 8 caracteres");
+            ok = false;
         }
 
         if (confirmar.isEmpty() || confirmar.equals("Confirmar nueva contraseña*")) {
@@ -180,28 +182,22 @@ public class PantallaCambiarContrasena extends JFrame {
             ok = false;
         }
 
-        // 🔴 IMPORTANTE: si ya hay errores, NO seguir
         if (!ok) return;
 
-        // 2. CARACTER ESPECIAL (acepta TODOS, incluido ".")
         if (!nueva.matches(".*[^a-zA-Z0-9].*")) {
             errorNueva.setText("Debe contener un carácter especial. Ej: @$!%*?&/-_.");
             return;
         }
 
-        // 3. COINCIDENCIA
         if (!nueva.equals(confirmar)) {
             errorConfirmar.setText("Las contraseñas no coinciden");
             return;
         }
 
-        // 4. LLAMADA AL DAO PARA CAMBIAR EN BDD
-        UsuarioDAO.Resultado res = UsuarioDAO.cambiarContrasena(usuario.idUsuario, actual, nueva);
+        UsuarioDAO.Resultado res = Cliente.cambiarContrasena(usuario.idUsuario, actual, nueva);
 
         if (res.ok) {
-            PantallaPrincipal.agregarNotificacion("Cambiaste tu contraseña con éxito ✓");
             JOptionPane.showMessageDialog(this, "Contraseña cambiada con éxito. Por favor, iniciá sesión nuevamente.");
-            // Cerrar todas las ventanas y volver al login
             Window[] windows = Window.getWindows();
             for (Window w : windows) {
                 w.dispose();
@@ -216,14 +212,14 @@ public class PantallaCambiarContrasena extends JFrame {
         }
     }
 
+    // ─── limpiarErrores ─────────────────
     private void limpiarErrores() {
         errorActual.setText("");
         errorNueva.setText("");
         errorConfirmar.setText("");
     }
 
-    // ─── COMPONENTES ────────────────────────────────────
-
+    // ─── createField ─────────────────
     private JPasswordField createField(String placeholder) {
         JPasswordField field = new JPasswordField() {
             @Override
@@ -231,7 +227,6 @@ public class PantallaCambiarContrasena extends JFrame {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // fondo redondeado tipo pill
                 g2.setColor(new Color(0xD9D9D9));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
 
@@ -268,6 +263,7 @@ public class PantallaCambiarContrasena extends JFrame {
         return field;
     }
 
+    // ─── errorLabel ─────────────────
     private JLabel errorLabel() {
         JLabel l = new JLabel("", SwingConstants.CENTER);
         l.setForeground(new Color(0xFF4D4D));
@@ -277,6 +273,7 @@ public class PantallaCambiarContrasena extends JFrame {
         return l;
     }
 
+    // ─── redButton ─────────────────
     private JButton redButton(String text) {
         JButton btn = new JButton(text) {
             protected void paintComponent(Graphics g) {

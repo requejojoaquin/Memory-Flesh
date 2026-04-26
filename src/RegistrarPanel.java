@@ -3,6 +3,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 
+import red.Cliente;
+import red.UsuarioDAO;
+
 public class RegistrarPanel extends JFrame {
 
     private static final Color BG_COLOR       = new Color(0x1E1B4B);
@@ -23,6 +26,7 @@ public class RegistrarPanel extends JFrame {
     private JLabel emailErrorLabel;
     private JLabel passwordErrorLabel;
 
+    // ─── RegistrarPanel ─────────────────
     public RegistrarPanel() {
         setTitle("Register - Memory Flesh");
         setSize(1920, 1080);
@@ -53,6 +57,7 @@ public class RegistrarPanel extends JFrame {
         setVisible(true);
     }
 
+    // ─── createCard ─────────────────
     private JPanel createCard() {
         JPanel card = new JPanel() {
             @Override
@@ -82,7 +87,6 @@ public class RegistrarPanel extends JFrame {
         passwordField        = createPasswordField("Contraseña*");
         confirmPasswordField = createPasswordField("Confirmar contraseña*");
 
-        // Label de error para username (nuevo)
         usernameErrorLabel = new JLabel(" ");
         usernameErrorLabel.setForeground(ERROR_COLOR);
         usernameErrorLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
@@ -127,6 +131,7 @@ public class RegistrarPanel extends JFrame {
         return card;
     }
 
+    // ─── createTextField ─────────────────
     private JTextField createTextField(String placeholder) {
         JTextField field = new JTextField() {
             @Override
@@ -143,6 +148,7 @@ public class RegistrarPanel extends JFrame {
         return field;
     }
 
+    // ─── createPasswordField ─────────────────
     private JPasswordField createPasswordField(String placeholder) {
         JPasswordField field = new JPasswordField() {
             @Override
@@ -159,6 +165,7 @@ public class RegistrarPanel extends JFrame {
         return field;
     }
 
+    // ─── styleField ─────────────────
     private void styleField(JTextField field, String placeholder) {
         field.setOpaque(false);
         field.setBorder(BorderFactory.createEmptyBorder(10, 16, 10, 16));
@@ -194,6 +201,7 @@ public class RegistrarPanel extends JFrame {
             ((JPasswordField) field).setEchoChar((char) 0);
     }
 
+    // ─── createButton ─────────────────
     private JButton createButton(String text) {
         JButton button = new JButton(text) {
             @Override
@@ -221,22 +229,20 @@ public class RegistrarPanel extends JFrame {
         return button;
     }
 
+    // ─── handleRegister ─────────────────
     private void handleRegister() {
-        // Limpiar errores anteriores
         usernameErrorLabel.setText(" ");
         emailErrorLabel.setText(" ");
         passwordErrorLabel.setText(" ");
 
         boolean valid = true;
 
-        // --- VALIDACIÓN NOMBRE DE USUARIO ---
         String username = usernameField.getText().trim();
         if (username.equals("Nombre de usuario*") || username.isEmpty()) {
             usernameErrorLabel.setText("Este campo no puede estar vacío");
             valid = false;
         }
 
-        // --- VALIDACIÓN EMAIL ---
         String email = emailField.getText().trim();
         if (email.equals("Correo electrónico*") || email.isEmpty()) {
             emailErrorLabel.setText("Este campo no puede estar vacío");
@@ -246,7 +252,6 @@ public class RegistrarPanel extends JFrame {
             valid = false;
         }
 
-        // --- VALIDACIÓN CONTRASEÑA ---
         String pass    = new String(passwordField.getPassword());
         String confirm = new String(confirmPasswordField.getPassword());
 
@@ -255,6 +260,9 @@ public class RegistrarPanel extends JFrame {
 
         if (passEmpty || confirmEmpty) {
             passwordErrorLabel.setText("Este campo no puede estar vacío");
+            valid = false;
+        } else if (pass.length() < 8) {
+            passwordErrorLabel.setText("La contraseña debe tener al menos 8 caracteres");
             valid = false;
         } else if (!pass.equals(confirm)) {
             passwordErrorLabel.setText("Las contraseñas no coinciden");
@@ -266,8 +274,7 @@ public class RegistrarPanel extends JFrame {
 
         if (!valid) return;
 
-        // --- LLAMADA A LA BDD ---
-        UsuarioDAO.Resultado resultado = UsuarioDAO.registrar(username, email, pass);
+        UsuarioDAO.Resultado resultado = Cliente.registrar(username, email, pass);
 
         if (resultado.ok) {
             JOptionPane.showMessageDialog(
@@ -276,9 +283,8 @@ public class RegistrarPanel extends JFrame {
                 "Registro exitoso",
                 JOptionPane.INFORMATION_MESSAGE
             );
-            dispose(); // Cierra el panel de registro, vuelve al login
+            dispose(); 
         } else {
-            // Mostrar el error del SP en el label correspondiente
             String mensaje = resultado.mensaje;
 
             if (mensaje.contains("usuario")) {
@@ -286,12 +292,12 @@ public class RegistrarPanel extends JFrame {
             } else if (mensaje.contains("correo") || mensaje.contains("mail")) {
                 emailErrorLabel.setText(mensaje);
             } else {
-                // Error genérico: mostrar en el label de contraseña como fallback
                 passwordErrorLabel.setText(mensaje);
             }
         }
     }
 
+    // ─── main ─────────────────
     public static void main(String[] args) {
         SwingUtilities.invokeLater(RegistrarPanel::new);
     }

@@ -3,6 +3,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.RoundRectangle2D;
 
+import red.Cliente;
+import red.UsuarioDAO;
+
 public class PantallaEliminarCuenta extends JFrame {
 
     private static final Color BG_COLOR = new Color(0x1E1B4B);
@@ -17,6 +20,7 @@ public class PantallaEliminarCuenta extends JFrame {
 
     private final UsuarioDAO.Usuario usuario;
 
+    // ─── PantallaEliminarCuenta ─────────────────
     public PantallaEliminarCuenta(JFrame parent, UsuarioDAO.Usuario usuario) {
         if (usuario == null) {
             JOptionPane.showMessageDialog(null, "Error: Sesión no válida.");
@@ -43,8 +47,7 @@ public class PantallaEliminarCuenta extends JFrame {
         setVisible(true);
     }
 
-    // ─── HEADER ─────────────────────
-
+    // ─── buildHeader ─────────────────
     private JPanel buildHeader(JFrame parent) {
         JPanel header = new JPanel(null);
         header.setBackground(BG_COLOR);
@@ -73,8 +76,7 @@ public class PantallaEliminarCuenta extends JFrame {
         return header;
     }
 
-    // ─── CONTENIDO ─────────────────────
-
+    // ─── buildContent ─────────────────
     private JPanel buildContent() {
         JPanel wrapper = new JPanel(new GridBagLayout());
         wrapper.setBackground(BG_COLOR);
@@ -86,7 +88,6 @@ public class PantallaEliminarCuenta extends JFrame {
 
         content.add(Box.createVerticalStrut(60));
 
-        // Título
         JLabel title = new JLabel("Eliminar cuenta");
         title.setForeground(TEXT_MAIN);
         title.setFont(new Font("SansSerif", Font.BOLD, 42));
@@ -95,7 +96,6 @@ public class PantallaEliminarCuenta extends JFrame {
 
         content.add(Box.createVerticalStrut(10));
 
-        // Descripción
         JLabel desc = new JLabel(
             "<html><div style='text-align:center; width:500px;'>"
             + "Tu perfil, fotos, comentarios y demás se eliminarán definitivamente"
@@ -108,7 +108,6 @@ public class PantallaEliminarCuenta extends JFrame {
 
         content.add(Box.createVerticalStrut(40));
 
-        // Campo contraseña
         passwordField = createField("Contraseña*");
         passwordField.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(passwordField);
@@ -118,7 +117,6 @@ public class PantallaEliminarCuenta extends JFrame {
 
         content.add(Box.createVerticalStrut(5));
 
-        // Botón eliminar
         JButton btnEliminar = redButton("Eliminar");
         btnEliminar.setAlignmentX(Component.CENTER_ALIGNMENT);
 
@@ -134,33 +132,31 @@ public class PantallaEliminarCuenta extends JFrame {
         return wrapper;
     }
 
-    // ─── VALIDACIÓN ─────────────────────
-
+    // ─── validar ─────────────────
     private void validar() {
-
         String pass = new String(passwordField.getPassword());
         errorPassword.setText("");
 
-        // vacío
         if (pass.isEmpty() || pass.equals("Contraseña*")) {
             errorPassword.setText("Este campo no puede estar vacío");
             return;
         }
 
-        // caracter especial (acepta TODOS)
+        if (pass.length() < 8) {
+            errorPassword.setText("La contraseña debe tener al menos 8 caracteres");
+            return;
+        }
+
         if (!pass.matches(".*[^a-zA-Z0-9].*")) {
             errorPassword.setText("Debe contener un carácter especial. Ej: @$!%*?&/-_.");
             return;
         }
 
-        // Mostrar confirmación
         mostrarConfirmacion();
     }
 
-    // ─── MODAL CONFIRMAR ─────────────────────
-
+    // ─── mostrarConfirmacion ─────────────────
     private void mostrarConfirmacion() {
-
         JDialog dialog = new JDialog(this, true);
         dialog.setSize(400, 150);
         dialog.setLocationRelativeTo(this);
@@ -170,27 +166,23 @@ public class PantallaEliminarCuenta extends JFrame {
         panel.setBackground(new Color(0x2E2A6E));
         panel.setBorder(BorderFactory.createLineBorder(DIVIDER_COLOR, 2));
 
-        // texto
         JLabel txt = new JLabel("¿Es seguro que quieres eliminar tu cuenta?");
         txt.setForeground(TEXT_MAIN);
         txt.setBounds(45, 40, 320, 30);
         txt.setFont(new Font("SansSerif", Font.BOLD, 15));
         panel.add(txt);
 
-        // botón confirmar
         JButton confirmarBtn = redButton("Confirmar");
         confirmarBtn.setBounds(135, 90, 120, 40);
 
         confirmarBtn.addActionListener(e -> {
             String pass = new String(passwordField.getPassword());
-            UsuarioDAO.Resultado res = UsuarioDAO.eliminarCuenta(usuario.idUsuario, pass);
-
+            UsuarioDAO.Resultado res = Cliente.eliminarCuenta(usuario.idUsuario, pass);
             if (res.ok) {
                 JOptionPane.showMessageDialog(this, "Cuenta eliminada correctamente");
                 dialog.dispose();
                 dispose();
                 
-                // Cerrar todas las ventanas y volver al login
                 Window[] windows = Window.getWindows();
                 for (Window window : windows) {
                     window.dispose();
@@ -204,7 +196,6 @@ public class PantallaEliminarCuenta extends JFrame {
 
         panel.add(confirmarBtn);
 
-        // botón cerrar (X)
         JLabel cerrar = new JLabel("✕");
         cerrar.setForeground(TEXT_MAIN);
         cerrar.setBounds(380, 0, 30, 30);
@@ -222,8 +213,7 @@ public class PantallaEliminarCuenta extends JFrame {
         dialog.setVisible(true);
     }
 
-    // ─── COMPONENTES ─────────────────────
-
+    // ─── createField ─────────────────
     private JPasswordField createField(String placeholder) {
         JPasswordField field = new JPasswordField() {
             protected void paintComponent(Graphics g) {
@@ -263,6 +253,7 @@ public class PantallaEliminarCuenta extends JFrame {
         return field;
     }
 
+    // ─── errorLabel ─────────────────
     private JLabel errorLabel() {
         JLabel l = new JLabel("", SwingConstants.CENTER);
         l.setForeground(new Color(0xFF4D4D));
@@ -273,6 +264,7 @@ public class PantallaEliminarCuenta extends JFrame {
         return l;
     }
 
+    // ─── redButton ─────────────────
     private JButton redButton(String text) {
         JButton btn = new JButton(text) {
             protected void paintComponent(Graphics g) {
